@@ -1,0 +1,42 @@
+# Configuración versionada del monitor (Proyecto 6).
+# Cualquier cambio produce un config_ref distinto (hash del contenido normalizado),
+# que queda registrado en cada evento.
+
+source:
+  id: shibuya-scramble-01
+  kind: live                  # live | replay
+  url: https://www.youtube.com/watch?v=dfVK7ld38Ys
+  format: "bv[height<=720]/bv"   # solo video, máximo 720p
+  sample_interval_s: 2.0      # política de muestreo: 1 frame cada 2 s (0.5 FPS de inferencia)
+  replay_dir: null            # carpeta de frames .jpg para kind: replay
+  reconnect_after_failures: 30   # lecturas fallidas seguidas antes de reconectar
+  reconnect_backoff_s: 5.0
+
+model:
+  name: yolo11n
+  weights: modelo/yolo11n.pt
+  url: https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt
+  sha256: 0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1
+  device: cpu
+  imgsz: 640
+  conf_floor: 0.05            # piso de salida bajo: deja visibles las zonas de duda y baja confianza
+  nms_iou: 0.7
+  max_det: 300
+  # Clases COCO monitoreadas: person, bicycle, car, motorcycle, bus, truck
+  classes: [0, 1, 2, 3, 5, 7]
+
+policy:
+  # PROVISIONALES: se recalibran con la ejecución de referencia (hito 03).
+  # Regla: 0 <= lower < upper <= 1; s == lower -> duda; s == upper -> aceptada.
+  lower: 0.35
+  upper: 0.60
+
+capture:
+  normal_every_n_frames: 15   # muestra de operación normal
+  low_ratio_min: 0.5          # captura si >= 50 % de las detecciones del frame están en baja confianza
+  low_min_detections: 3       # ... y el frame tiene al menos 3 detecciones
+  on_no_detections: true
+  on_error: true
+
+output:
+  runs_dir: datos/runs

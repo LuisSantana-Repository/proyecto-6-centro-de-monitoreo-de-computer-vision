@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Pesos del modelo: se descargan con scripts y se verifican por SHA-256
+*.pt
+*.onnx
+
+# Datos de trabajo (las evidencias seleccionadas sí se versionan en evidencias/)
+datos/runs/
+datos/grabaciones/
+datos/*.db
+*.db-journal
+
+# Material del curso (no es parte del entregable)
+guia-proyecto-6.html
+prompt-evaluacion-proyecto-6.md

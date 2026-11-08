@@ -9,9 +9,9 @@
 | Revisión | Qué contiene |
 |---|---|
 | `0862536` | Código con el que se procesaron las dos referencias (hitos 01–05). |
-| commit que agrega este índice | Código de C1 y C2 y todas las evidencias. |
+| `50b3b0a` | Código de C1 y C2 y todas las evidencias. |
 
-Respecto de `0862536`, el commit de evidencias agrega:
+Respecto de `0862536`, `50b3b0a` agrega:
 - la muestra de recursos del proceso por evento (`resources`, para G3);
 - el cálculo de métricas (`monitor.metrics`);
 - pruebas;

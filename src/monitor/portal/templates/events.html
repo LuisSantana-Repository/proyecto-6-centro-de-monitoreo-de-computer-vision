@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Eventos{% endblock %}
+{% block content %}
+<h1>Eventos de inferencia <span class="muted">({{ total }})</span></h1>
+<div class="card">
+<form class="filters" method="get">
+  <label>Ejecución
+    <select name="run_id"><option value="">Todas</option>
+    {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if f.run_id == r.run_id }}>{{ r.run_id }}</option>{% endfor %}
+    </select></label>
+  <label>Estado
+    <select name="status"><option value="">Todos</option>
+    {% for s in statuses %}<option {{ 'selected' if f.status == s }}>{{ s }}</option>{% endfor %}
+    </select></label>
+  <label>Motivo de captura
+    <select name="reason"><option value="">Todos</option>
+    {% for r in reasons %}<option {{ 'selected' if f.reason == r }}>{{ r }}</option>{% endfor %}
+    </select></label>
+  <label>Desde (UTC)<input name="since" value="{{ f.since }}" placeholder="2026-11-08T05:00"></label>
+  <label>Hasta (UTC)<input name="until" value="{{ f.until }}" placeholder="2026-11-08T06:00"></label>
+  <label><span>Solo con imagen</span><input type="checkbox" name="with_image" value="true" {{ 'checked' if f.with_image }}></label>
+  <button>Filtrar</button> <a href="/eventos">Limpiar</a>
+</form>
+</div>
+{% if items %}
+<table>
+<thead><tr><th>Captura (UTC)</th><th>Ejecución</th><th class="num">#</th><th>Estado</th><th class="num">Det.</th>
+<th class="num">Acep.</th><th class="num">Duda</th><th class="num">Baja</th><th class="num">Prop. baja</th>
+<th class="num">Inferencia ms</th><th>Imagen</th><th>Config.</th></tr></thead>
+<tbody>
+{% for e in items %}
+<tr>
+  <td class="mono"><a href="/eventos/{{ e.event_id }}">{{ e.captured_at }}</a></td>
+  <td class="mono"><a href="/runs/{{ e.run_id }}">{{ e.run_id }}</a></td>
+  <td class="num">{{ e.seq }}</td>
+  <td><span class="badge s-{{ e.status }}">{{ e.status }}</span></td>
+  <td class="num">{{ e.n_detections }}</td>
+  <td class="num">{{ e.n_accepted }}</td><td class="num">{{ e.n_doubt }}</td><td class="num">{{ e.n_low }}</td>
+  <td class="num">{{ '%.3f'|format(e.low_ratio) if e.low_ratio is not none else '—' }}</td>
+  <td class="num">{{ '%.0f'|format(e.inference_ms) if e.inference_ms is not none else '—' }}</td>
+  <td>{% if e.image_ref %}<a href="/eventos/{{ e.event_id }}">{{ e.capture_reason }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td class="mono"><a href="/config/{{ e.config_ref }}">{{ e.config_ref }}</a></td>
+</tr>
+{% endfor %}
+</tbody></table>
+<div class="pager">
+  {% if page > 1 %}<a href="?{{ qs }}&page={{ page - 1 }}">← Anterior</a>{% endif %}
+  <span>Página {{ page }} de {{ pages }}</span>
+  {% if page < pages %}<a href="?{{ qs }}&page={{ page + 1 }}">Siguiente →</a>{% endif %}
+</div>
+{% else %}
+<div class="empty">No hay eventos que coincidan con los filtros.</div>
+{% endif %}
+{% endblock %}

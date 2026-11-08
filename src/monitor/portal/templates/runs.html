@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Ejecuciones{% endblock %}
+{% block content %}
+<h1>Ejecuciones <span class="muted">({{ items|length }})</span></h1>
+{% if items %}
+<table>
+<thead><tr><th>Ejecución</th><th>Etiqueta</th><th>Modo</th><th>Inicio (UTC)</th><th>Fin (UTC)</th><th class="num">Eventos</th><th class="num">Imágenes</th><th>Config.</th><th>Modelo</th></tr></thead>
+<tbody>
+{% for r in items %}
+<tr>
+  <td class="mono"><a href="/runs/{{ r.run_id }}">{{ r.run_id }}</a></td>
+  <td>{{ r.label }}</td><td>{{ r.mode }}</td>
+  <td class="mono">{{ r.started_at }}</td><td class="mono">{{ r.finished_at or 'en curso' }}</td>
+  <td class="num"><a href="/eventos?run_id={{ r.run_id }}">{{ r.n_events }}</a></td>
+  <td class="num">{{ r.n_images or 0 }}</td>
+  <td class="mono"><a href="/config/{{ r.config_ref }}">{{ r.config_ref }}</a></td>
+  <td class="mono">{{ r.model_ref }}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% else %}<div class="empty">No hay ejecuciones registradas.</div>{% endif %}
+{% endblock %}

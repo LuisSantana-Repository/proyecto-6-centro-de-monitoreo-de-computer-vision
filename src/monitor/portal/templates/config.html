@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Configuración {{ ref }}{% endblock %}
+{% block content %}
+<h1>Configuración <span class="mono">{{ ref }}</span></h1>
+<p class="muted">Identificador = hash SHA-256 del contenido normalizado (sin la sección <code>output</code>). Permite reconstruir umbrales, muestreo y parámetros del modelo de cualquier evento.</p>
+<div class="grid">
+  <pre>{{ pretty }}</pre>
+  <div class="card"><b>Ejecuciones con esta configuración</b>
+    {% if runs %}<ul>{% for r in runs %}<li><a href="/runs/{{ r.run_id }}">{{ r.run_id }}</a> ({{ r.label }})</li>{% endfor %}</ul>
+    {% else %}<p class="muted">Ninguna.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

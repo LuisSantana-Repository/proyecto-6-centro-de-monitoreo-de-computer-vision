@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Alertas{% endblock %}
+{% block content %}
+<h1>Alertas <span class="muted">({{ items|length }})</span></h1>
+<div class="card">
+<form class="filters" method="get">
+  <label>Ejecución
+    <select name="run_id"><option value="">Todas</option>
+    {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if f.run_id == r.run_id }}>{{ r.run_id }}</option>{% endfor %}
+    </select></label>
+  <label>Regla
+    <select name="rule_id"><option value="">Todas</option>
+    {% for r in rules %}<option {{ 'selected' if f.rule_id == r }}>{{ r }}</option>{% endfor %}
+    </select></label>
+  <label>Severidad
+    <select name="severity"><option value="">Todas</option>
+    {% for s in ['info', 'warning', 'critical'] %}<option {{ 'selected' if f.severity == s }}>{{ s }}</option>{% endfor %}
+    </select></label>
+  <label>Estado
+    <select name="status"><option value="">Todos</option>
+    {% for s in ['open', 'resolved'] %}<option {{ 'selected' if f.status == s }}>{{ s }}</option>{% endfor %}
+    </select></label>
+  <button>Filtrar</button> <a href="/alertas">Limpiar</a>
+</form>
+</div>
+{% if items %}
+<table>
+<thead><tr><th>Momento (UTC)</th><th>Alerta</th><th>Regla</th><th>Severidad</th><th>Estado</th><th>Motivo</th><th>Acción sugerida</th><th class="num">Eventos</th><th>Ventana</th></tr></thead>
+<tbody>
+{% for a in items %}
+<tr>
+  <td class="mono">{{ a.timestamp }}</td>
+  <td class="mono"><a href="/alertas/{{ a.alert_id }}">{{ a.alert_id }}</a></td>
+  <td class="mono">{{ a.rule_id }}</td>
+  <td><span class="badge sev-{{ a.severity }}">{{ a.severity }}</span></td>
+  <td>{{ a.status }}</td>
+  <td>{{ a.reason }}</td>
+  <td>{{ a.suggested_action }}</td>
+  <td class="num">{{ a.n_events }}</td>
+  <td class="mono">{{ a.window_start or '—' }}<br>{{ a.window_end or '' }}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+{% else %}
+<div class="empty">No hay alertas registradas{{ ' con estos filtros' if f.values()|select|list }}.</div>
+{% endif %}
+{% endblock %}

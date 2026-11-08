@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Evento {{ ev.seq }}{% endblock %}
+{% block content %}
+<h1>Evento <span class="mono">{{ ev.event_id }}</span></h1>
+<div class="grid">
+<div>
+  {% if ev.image_ref %}
+    <img class="frame" src="/imagen/{{ ev.event_id }}?low={{ 'true' if show_low else 'false' }}" alt="Frame {{ ev.frame_id }} con detecciones">
+    <p class="muted">
+      Cajas: <span class="badge z-accepted">aceptada ≥ {{ ev.thresholds.upper }}</span>
+      <span class="badge z-doubt">duda [{{ ev.thresholds.lower }}, {{ ev.thresholds.upper }})</span>
+      {% if show_low %}<span class="badge z-low">baja &lt; {{ ev.thresholds.lower }}</span>
+        · <a href="?low=false">Ocultar baja confianza</a>
+      {% else %}· <a href="?low=true">Mostrar también baja confianza</a>{% endif %}
+      · <a href="/imagen/{{ ev.event_id }}?boxes=false">Imagen original</a>
+    </p>
+  {% else %}
+    <div class="empty">Este evento no tiene imagen capturada (política de captura: solo se guardan frames seleccionados).</div>
+  {% endif %}
+
+  <h2>Detecciones ({{ ev.n_detections }})</h2>
+  {% if ev.detections %}
+  <table>
+  <thead><tr><th class="num">#</th><th>Clase</th><th class="num">Puntuación</th><th>Zona</th><th class="mono">Caja xyxy (px)</th></tr></thead>
+  <tbody>
+  {% for d in ev.detections|sort(attribute='score', reverse=True) %}
+  <tr><td class="num">{{ loop.index }}</td><td>{{ d.class_name }} <span class="muted">({{ d.class_id }})</span></td>
+      <td class="num">{{ '%.4f'|format(d.score) }}</td><td><span class="badge z-{{ d.zone }}">{{ d.zone }}</span></td>
+      <td class="mono">{{ d.bbox_xyxy|join(', ') }}</td></tr>
+  {% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">Sin detecciones en este frame (estado: {{ ev.status }}).</div>{% endif %}
+</div>
+<div>
+  <div class="card"><dl>
+    <dt>Estado</dt><dd><span class="badge s-{{ ev.status }}">{{ ev.status }}</span></dd>
+    <dt>Frame</dt><dd class="mono">{{ ev.frame_id }} (#{{ ev.seq }})</dd>
+    <dt>Captura</dt><dd class="mono">{{ ev.captured_at }}</dd>
+    <dt>Evento</dt><dd class="mono">{{ ev.timestamp }}</dd>
+    <dt>Fuente</dt><dd>{{ ev.source_id }}{% if ev.origin %} <span class="muted">(replay: {{ ev.origin }})</span>{% endif %}</dd>
+    <dt>Ejecución</dt><dd class="mono"><a href="/runs/{{ ev.run_id }}">{{ ev.run_id }}</a></dd>
+    <dt>Tarea</dt><dd>{{ ev.task }}</dd>
+    <dt>Modelo</dt><dd class="mono">{{ ev.model_ref }}</dd>
+    <dt>Configuración</dt><dd class="mono"><a href="/config/{{ ev.config_ref }}">{{ ev.config_ref }}</a></dd>
+    <dt>Umbrales</dt><dd>inferior {{ ev.thresholds.lower }} · superior {{ ev.thresholds.upper }}</dd>
+    <dt>Zonas</dt><dd><span class="badge z-accepted">{{ ev.n_accepted }}</span> <span class="badge z-doubt">{{ ev.n_doubt }}</span> <span class="badge z-low">{{ ev.n_low }}</span></dd>
+    <dt>Prop. baja</dt><dd>{{ '%.4f'|format(ev.low_ratio) if ev.low_ratio is not none else '— (sin puntuaciones)' }}</dd>
+    <dt>Tiempos</dt><dd class="mono">{% for k, v in ev.timings.items() %}{{ k }}={{ v }}<br>{% endfor %}e2e_ms={{ ev.e2e_ms }}</dd>
+    <dt>Imagen</dt><dd class="mono">{{ ev.image_ref or '—' }}{% if ev.capture_reason %}<br>motivo: {{ ev.capture_reason }}{% endif %}</dd>
+    {% if ev.error %}<dt>Error</dt><dd>{{ ev.error }}</dd>{% endif %}
+  </dl></div>
+  <div class="card">
+    <b>Alertas que referencian este evento</b>
+    {% if alerts %}<ul>{% for a in alerts %}<li><a href="/alertas/{{ a.alert_id }}">{{ a.alert_id }}</a> · <span class="badge sev-{{ a.severity }}">{{ a.severity }}</span> · {{ a.rule_id }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">Ninguna.</p>{% endif %}
+  </div>
+  <p><a href="/api/eventos/{{ ev.event_id }}">Ver JSON del evento</a> · <a href="/eventos?run_id={{ ev.run_id }}">Eventos de esta ejecución</a></p>
+</div>
+</div>
+{% endblock %}

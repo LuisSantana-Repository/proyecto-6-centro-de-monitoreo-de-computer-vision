@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Alerta{% endblock %}
+{% block content %}
+<h1>Alerta <span class="mono">{{ al.alert_id }}</span></h1>
+<div class="grid">
+<div>
+  <div class="card"><dl>
+    <dt>Motivo</dt><dd>{{ al.reason }}</dd>
+    <dt>Acción sugerida</dt><dd>{{ al.suggested_action }}</dd>
+  </dl></div>
+  <h2>Evidencia: eventos de la ventana ({{ events|length }})</h2>
+  {% if events %}
+  <table>
+  <thead><tr><th>Imagen</th><th>Captura (UTC)</th><th class="num">#</th><th>Estado</th><th class="num">Det.</th><th class="num">Acep./Duda/Baja</th><th class="num">Prop. baja</th></tr></thead>
+  <tbody>
+  {% for e in events %}
+  <tr>
+    <td>{% if e.image_ref %}<a href="/eventos/{{ e.event_id }}"><img class="thumb" src="/imagen/{{ e.event_id }}" alt="frame {{ e.seq }}"></a>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td class="mono"><a href="/eventos/{{ e.event_id }}">{{ e.captured_at }}</a></td>
+    <td class="num">{{ e.seq }}</td>
+    <td><span class="badge s-{{ e.status }}">{{ e.status }}</span></td>
+    <td class="num">{{ e.n_detections }}</td>
+    <td class="num">{{ e.n_accepted }} / {{ e.n_doubt }} / {{ e.n_low }}</td>
+    <td class="num">{{ '%.3f'|format(e.low_ratio) if e.low_ratio is not none else '—' }}</td>
+  </tr>
+  {% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">La alerta no referencia eventos.</div>{% endif %}
+</div>
+<div>
+  <div class="card"><dl>
+    <dt>Momento</dt><dd class="mono">{{ al.timestamp }}</dd>
+    <dt>Severidad</dt><dd><span class="badge sev-{{ al.severity }}">{{ al.severity }}</span></dd>
+    <dt>Estado</dt><dd>{{ al.status }}{% if al.resolved_at %} · resuelta {{ al.resolved_at }}{% endif %}</dd>
+    <dt>Ventanas del episodio</dt><dd>{{ al.n_windows or '—' }}{% if al.suppressed_repeats %} ({{ al.suppressed_repeats }} repeticiones suprimidas){% endif %}</dd>
+    <dt>Regla</dt><dd class="mono">{{ al.rule_id }}</dd>
+    <dt>Configuración</dt><dd class="mono"><a href="/config/{{ al.config_ref }}">{{ al.config_ref }}</a></dd>
+    <dt>Ejecución</dt><dd class="mono">{% if al.run_id %}<a href="/runs/{{ al.run_id }}">{{ al.run_id }}</a>{% else %}—{% endif %}</dd>
+    <dt>Ventana</dt><dd class="mono">{{ al.window_start or '—' }} → {{ al.window_end or '—' }}</dd>
+  </dl></div>
+  <div class="card"><b>Métrica que disparó la regla</b><pre>{{ al.metric|tojson(indent=2) }}</pre></div>
+  <p><a href="/api/alertas/{{ al.alert_id }}">Ver JSON de la alerta</a></p>
+</div>
+</div>
+{% endblock %}

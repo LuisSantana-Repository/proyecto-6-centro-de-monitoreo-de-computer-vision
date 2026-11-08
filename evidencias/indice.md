@@ -84,14 +84,22 @@ uv run pytest -q                                # 29 pruebas
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
 uv run python -m monitor.metrics  datos/runs/20261108T163302Z-c2-baja-confianza   # G1–G7
 
-# 2) Reproducir la inferencia sobre la muestra (60 frames = 1 ventana; ~1 min)
-uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --label muestra-c2
-#    → misma ventana 1 que la oficial (prop_baja 0.754, media 0.414, 1247 elegibles) y la alerta baja-confianza-v1
-
-# 3) Portal sobre las ejecuciones oficiales
+# 2) Portal sobre las ejecuciones oficiales
 uv run python -m monitor.ingest                 # crea datos/monitor.db desde datos/runs/
 uv run python -m monitor.portal                 # http://127.0.0.1:8000
+
+# 3) Reproducir la inferencia sobre la muestra (60 frames = 1 ventana; ~1 min)
+uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --label muestra-c2
+#    → misma ventana 1 que la oficial (prop_baja 0.754, media 0.414, 1247 elegibles) y la alerta baja-confianza-v1
+#    (agrega la ejecución muestra-c2 a datos/runs/ y a la base; por eso va después del paso 2)
 ```
+
+Comprobado en un clon limpio de `97469f3`, descargado desde GitHub el 2026-11-08:
+- 29 pruebas pasan.
+- `evaluate` coincide en las cuatro ejecuciones.
+- Las métricas de C2 son idénticas a [`metricas/`](metricas/).
+- La muestra de C2 reproduce la ventana 1 y su alerta.
+- Todas las vistas del portal responden 200, y la API devuelve las 4 alertas.
 
 ## Recorrido del portal
 

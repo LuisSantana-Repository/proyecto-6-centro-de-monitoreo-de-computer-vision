@@ -1,9 +1,10 @@
-"""Recorrido principal: fuente -> inferencia -> zonas de confianza -> evento (+ captura).
+"""Recorrido principal: fuente -> inferencia -> zonas -> evento (+ captura) -> ventana -> alerta.
 
 Uso:
-  uv run python -m monitor.run --frames 30                       # cámara en vivo
-  uv run python -m monitor.run --frames 30 --record              # además guarda cada frame para replay
-  uv run python -m monitor.run --replay datos/grabaciones/<run>  # reproduce una secuencia grabada
+  uv run python -m monitor.run --frames 450 --label c1                       # cámara en vivo
+  uv run python -m monitor.run --frames 450 --record --label c1              # + guarda cada frame para replay
+  uv run python -m monitor.run --replay datos/grabaciones/<run> --label x    # reproduce a 1 frame / 2 s
+  uv run python -m monitor.run --replay ... --no-pace --label x              # reprocesa sin esperar (solo análisis)
 """
 
 from __future__ import annotations
@@ -18,11 +19,13 @@ from pathlib import Path
 
 import cv2
 
+from monitor.alerts import WindowEvaluator
 from monitor.config import config_ref, load_config, sha256_file
 from monitor.detector import Detector
 from monitor.events import Detection, EventWriter, InferenceEvent
 from monitor.policy import LOW, zone, zone_counts
 from monitor.source import LiveYouTubeSource, ReplaySource, utc_now_iso
+from monitor.store import Store
 
 
 def environment() -> dict:
@@ -40,17 +43,31 @@ def environment() -> dict:
     }
 
 
-def capture_reason(cfg: dict, seq: int, status: str, n: int, low_ratio: float | None) -> str | None:
-    c = cfg["capture"]
+def capture_reason(cfg: dict, seq: int, status: str, dets: list[Detection]) -> str | None:
+    """Política de captura (qué frames se conservan como imagen)."""
+    c, floor = cfg["capture"], cfg["policy"]["analysis_floor"]
     if status in ("inference_error", "invalid_input"):
         return "error" if c["on_error"] else None
     if status == "no_detections" and c["on_no_detections"]:
         return "sin_detecciones"
-    if low_ratio is not None and n >= c["low_min_detections"] and low_ratio >= c["low_ratio_min"]:
+    eligible = [d.score for d in dets if d.score >= floor]
+    if len(eligible) >= c["frame_min_eligible"] and sum(eligible) / len(eligible) < c["frame_mean_below"]:
         return "baja_confianza"
     if seq % c["normal_every_n_frames"] == 0:
         return "muestra_normal"
     return None
+
+
+class JsonlLog:
+    def __init__(self, path: Path):
+        self._f = open(path, "a", encoding="utf-8")
+
+    def write(self, rec: dict) -> None:
+        self._f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        self._f.flush()
+
+    def close(self) -> None:
+        self._f.close()
 
 
 def main() -> None:
@@ -58,8 +75,9 @@ def main() -> None:
     ap.add_argument("--config", default="config/monitor.yaml")
     ap.add_argument("--frames", type=int, default=None, help="número de frames a procesar (default: sin límite)")
     ap.add_argument("--replay", default=None, help="carpeta de frames .jpg a reproducir como stream")
+    ap.add_argument("--no-pace", action="store_true", help="replay sin esperar el intervalo (reprocesamiento)")
     ap.add_argument("--record", action="store_true", help="guardar cada frame muestreado para replay")
-    ap.add_argument("--label", default="run", help="etiqueta del run (p. ej. referencia, normal, baja)")
+    ap.add_argument("--label", default="run", help="etiqueta del run (p. ej. referencia, c1, c2)")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -81,7 +99,10 @@ def main() -> None:
     if args.record:
         rec_dir.mkdir(parents=True, exist_ok=True)
 
-    source = ReplaySource(cfg, args.replay) if args.replay else LiveYouTubeSource(cfg)
+    if args.replay:
+        source = ReplaySource(cfg, args.replay, pace=not args.no_pace)
+    else:
+        source = LiveYouTubeSource(cfg)
     detector = Detector(cfg, model_sha)
     print(f"[{run_id}] modelo={detector.model_ref} config={cref} umbrales=({lower}, {upper})")
     detector.warmup()
@@ -98,13 +119,45 @@ def main() -> None:
         "class_names": {c: detector.names[c] for c in cfg["model"]["classes"]},
         "environment": environment(),
         "mode": "replay" if args.replay else "live",
+        "replay_of": Path(args.replay).name if args.replay else None,
+        "paced": not (args.replay and args.no_pace),
         "recording_dir": str(rec_dir) if args.record else None,
     }
     writer = EventWriter(run_dir / "events.jsonl")
-    counts = {"ok": 0, "no_detections": 0, "inference_error": 0, "invalid_input": 0, "images": 0}
+    win_log = JsonlLog(run_dir / "windows.jsonl")
+    alert_log = JsonlLog(run_dir / "alerts.jsonl")
+    evaluator = WindowEvaluator(cfg, cref, run_id)
+    counts = {"ok": 0, "no_detections": 0, "inference_error": 0, "invalid_input": 0, "images": 0,
+              "windows": 0, "alerts": 0}
 
     source.start()
     manifest["source_meta"] = source.stats.stream_meta
+    store = Store(cfg["output"]["db"])
+    store.upsert_config(cref, cfg)
+    store.upsert_run(manifest)
+
+    def handle_window(result) -> None:
+        win, new_alerts, updates = result
+        if win is None:
+            return
+        rec = win.record()
+        win_log.write(rec)
+        store.insert_window(rec)
+        counts["windows"] += 1
+        lr = f"{win.low_ratio:.3f}" if win.low_ratio is not None else "-"
+        ms = f"{win.mean_score:.3f}" if win.mean_score is not None else "-"
+        print(f"  == ventana {win.idx}: {win.state} (prop_baja={lr} media={ms} elegibles={win.n_eligible})")
+        for a in new_alerts:
+            alert_log.write({"type": "alert", **a})
+            store.insert_alert(a)
+            counts["alerts"] += 1
+            print(f"  !! ALERTA {a['severity']} {a['rule_id']}: {a['reason']}")
+        for u in updates:
+            alert_log.write({"type": "update", **u})
+            store.update_alert(u)
+            if u.get("status") == "resolved":
+                print(f"  -- alerta resuelta: {u['alert_id']}")
+
     try:
         for fr in source.frames(args.frames):
             frame_id = f"{run_id}-f{fr.seq:06d}"
@@ -124,7 +177,7 @@ def main() -> None:
 
             zc = zone_counts([d.zone for d in dets])
             low_ratio = round(zc[LOW] / len(dets), 4) if dets else None
-            reason = capture_reason(cfg, fr.seq, status, len(dets), low_ratio)
+            reason = capture_reason(cfg, fr.seq, status, dets)
             image_ref = None
             if reason and fr.image is not None:
                 p = img_dir / f"{frame_id}.jpg"
@@ -155,23 +208,30 @@ def main() -> None:
                 capture_reason=reason,
                 error=err,
             )
-            writer.write(ev)
+            writer.write(ev)        # registro primario (JSONL, recalculable)
+            store.insert_event(ev)  # consulta en el portal
             counts[status] += 1
             print(
                 f"  #{fr.seq:4d} {status:14s} det={len(dets):3d} "
                 f"acc/dud/baja={zc['accepted']}/{zc['doubt']}/{zc['low']} "
                 f"inf={timings.get('inference_ms', '-')}ms img={reason or '-'}"
             )
+            handle_window(evaluator.add(ev))
     except KeyboardInterrupt:
         print("Interrumpido por el usuario.")
     finally:
+        handle_window(evaluator.flush())
         source.stop()
         writer.close()
+        win_log.close()
+        alert_log.close()
         manifest["finished_at"] = utc_now_iso()
         manifest["counts"] = counts
         manifest["source_stats"] = source.stats.as_dict()
         (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"Listo: {run_dir}")
+        store.upsert_run(manifest)
+        store.close()
+        print(f"Listo: {run_dir}  ({counts['windows']} ventanas, {counts['alerts']} alertas)")
 
 
 if __name__ == "__main__":

@@ -1,14 +1,13 @@
 # Configuración versionada del monitor (Proyecto 6).
-# Cualquier cambio produce un config_ref distinto (hash del contenido normalizado),
-# que queda registrado en cada evento.
+# Cualquier cambio (salvo la sección `output`) produce un config_ref distinto: hash del
+# contenido normalizado, registrado en cada evento, ventana y alerta.
+# Justificación de los valores: docs/umbrales.md · estadísticas: config/referencia.json
 
 source:
   id: shibuya-scramble-01
-  kind: live                  # live | replay
   url: https://www.youtube.com/watch?v=dfVK7ld38Ys
   format: "bv[height<=720]/bv"   # solo video, máximo 720p
   sample_interval_s: 2.0      # política de muestreo: 1 frame cada 2 s (0.5 FPS de inferencia)
-  replay_dir: null            # carpeta de frames .jpg para kind: replay
   reconnect_after_failures: 30   # lecturas fallidas seguidas antes de reconectar
   reconnect_backoff_s: 5.0
 
@@ -18,7 +17,7 @@ model:
   url: https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt
   sha256: 0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1
   device: cpu
-  imgsz: 640
+  imgsz: 1280                 # 640 daba 0.9 detecciones aceptadas/frame en la referencia; 1280 da ~8 (~110-160 ms)
   conf_floor: 0.05            # piso de salida bajo: deja visibles las zonas de duda y baja confianza
   nms_iou: 0.7
   max_det: 300
@@ -26,17 +25,52 @@ model:
   classes: [0, 1, 2, 3, 5, 7]
 
 policy:
-  # PROVISIONALES: se recalibran con la ejecución de referencia (hito 03).
-  # Regla: 0 <= lower < upper <= 1; s == lower -> duda; s == upper -> aceptada.
-  lower: 0.35
-  upper: 0.60
+  # 0 <= lower < upper <= 1; s == lower -> duda; s == upper -> aceptada.
+  # Calibrados con la referencia (mañana + tarde), entre detecciones con s >= analysis_floor:
+  lower: 0.50                 # ~percentil 60 de la referencia
+  upper: 0.65                 # ~percentil 80 de la referencia: "aceptada" = quinto superior
+  # Población elegible para las métricas de confianza: candidatas con s >= analysis_floor.
+  # Las candidatas por debajo (74 % del total) dependen sobre todo del tamaño de la multitud.
+  analysis_floor: 0.25
+
+windows:
+  size_frames: 60             # 60 frames muestreados = 2 min a 0.5 FPS
+  min_valid_frames: 45        # frames con inferencia válida (ok / no_detections)
+  min_eligible: 300           # detecciones elegibles mínimas; si no, la ventana es "insuficiente"
+
+reference:
+  stats_file: config/referencia.json
+  recordings:                 # grabaciones de operación normal de día usadas como referencia
+    - datos/grabaciones/20261107T220327Z-referencia        # 07:04 JST, domingo, poca gente
+    - datos/grabaciones/20261108T053156Z-referencia-tarde  # 14:32 JST, domingo, multitud
+
+alerts:
+  - rule_id: baja-confianza-v1
+    signal: low_ratio         # proporción de elegibles con s < lower
+    op: ">"
+    threshold: 0.724          # media + 2 sd de la referencia (0.598 + 2 x 0.063), ventanas de 2 min
+    consecutive: 1
+    severity: warning
+    suggested_action: >-
+      Revisar las capturas de la ventana: iluminación, clima, oclusión o encuadre de la cámara.
+      Una confianza baja no implica que las detecciones sean incorrectas.
+  - rule_id: cambio-sostenido-v1
+    signal: mean_score        # puntuación media de elegibles
+    op: "<"
+    threshold: 0.445          # media - 2 sd de la referencia (0.480 - 2 x 0.0176), ventanas de 2 min
+    consecutive: 3            # 3 ventanas suficientes seguidas = 6 min
+    severity: critical
+    suggested_action: >-
+      Posible cambio sostenido respecto de la referencia (p. ej. noche, lluvia, cámara movida).
+      Comparar con capturas de referencia; no confirma drift ni exige reentrenar.
 
 capture:
   normal_every_n_frames: 15   # muestra de operación normal
-  low_ratio_min: 0.5          # captura si >= 50 % de las detecciones del frame están en baja confianza
-  low_min_detections: 3       # ... y el frame tiene al menos 3 detecciones
+  frame_mean_below: 0.38      # captura por baja confianza: media de elegibles del frame < percentil 5 de la referencia
+  frame_min_eligible: 5
   on_no_detections: true
   on_error: true
 
 output:
   runs_dir: datos/runs
+  db: datos/monitor.db

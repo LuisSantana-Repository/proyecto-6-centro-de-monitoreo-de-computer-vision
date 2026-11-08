@@ -36,7 +36,9 @@ class SourceStats:
     frames_received: int = 0        # frames leídos del stream (30 fps en vivo)
     frames_sampled: int = 0         # frames entregados a inferencia
     dropped_sampling: int = 0       # descartados por la política de muestreo
-    dropped_saturation: int = 0     # ticks de muestreo perdidos porque la inferencia tardó más que el intervalo
+    # Ticks de muestreo perdidos (el ciclo anterior duró más que sample_interval_s), separados por causa:
+    dropped_saturation: int = 0     # ... porque el procesamiento (inferencia + evento) tardó más
+    dropped_source_wait: int = 0    # ... porque la fuente tardó en entregar el frame (p. ej. segmento HLS)
     read_failures: int = 0          # grab() fallidos del stream
     decode_failures: int = 0        # frames muestreados que no se pudieron obtener/decodificar
     reconnections: int = 0
@@ -140,19 +142,29 @@ class LiveYouTubeSource:
     def frames(self, max_frames: int | None = None):
         seq = 0
         next_t = time.perf_counter()
+        last_wait = last_proc = 0.0
+        t_yield = None
         while max_frames is None or seq < max_frames:
             now = time.perf_counter()
+            if t_yield is not None:
+                last_proc = now - t_yield
             if now < next_t:
                 time.sleep(next_t - now)
             else:
                 missed = int((now - next_t) // self.interval)
-                self.stats.dropped_saturation += missed
+                if last_wait > last_proc:
+                    self.stats.dropped_source_wait += missed
+                else:
+                    self.stats.dropped_saturation += missed
                 next_t += missed * self.interval
             next_t += self.interval
 
             self._ready.clear()
             self._want.set()
-            if not self._ready.wait(timeout=30):
+            t_req = time.perf_counter()
+            got = self._ready.wait(timeout=30)
+            last_wait = time.perf_counter() - t_req
+            if not got:
                 captured_at, t_cap, img = utc_now_iso(), time.perf_counter(), None
             else:
                 captured_at, t_cap, img = self._handoff
@@ -163,18 +175,21 @@ class LiveYouTubeSource:
             seq += 1
             self.stats.frames_sampled += 1
             yield Frame(seq, self.source_id, captured_at, t_cap, img)
+            t_yield = time.perf_counter()
 
 
 class ReplaySource:
     """Reproduce una carpeta de frames .jpg como stream, al mismo ritmo declarado."""
 
-    def __init__(self, cfg: dict, replay_dir: str | Path):
+    def __init__(self, cfg: dict, replay_dir: str | Path, pace: bool = True):
         self.source_id = cfg["source"]["id"] + "-replay"
-        self.interval = float(cfg["source"]["sample_interval_s"])
+        self.interval = float(cfg["source"]["sample_interval_s"]) if pace else 0.0
         self.files = sorted(Path(replay_dir).glob("*.jpg"))
         if not self.files:
             raise FileNotFoundError(f"No hay .jpg en {replay_dir}")
-        self.stats = SourceStats(stream_meta={"replay_dir": str(replay_dir), "n_files": len(self.files)})
+        self.stats = SourceStats(stream_meta={"replay_dir": Path(replay_dir).as_posix(),
+                                              "n_files": len(self.files), "paced": pace,
+                                              "interval_s": self.interval})
 
     def start(self) -> None: ...
 

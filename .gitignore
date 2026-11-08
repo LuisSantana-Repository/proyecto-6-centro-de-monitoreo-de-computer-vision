@@ -10,6 +10,7 @@ __pycache__/
 # Datos de trabajo (las evidencias seleccionadas sí se versionan en evidencias/)
 datos/runs/
 datos/grabaciones/
+datos/logs/
 datos/*.db
 *.db-journal
 

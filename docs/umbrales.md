@@ -114,8 +114,33 @@ Las alertas enlazan las imágenes capturadas dentro de sus ventanas.
 
 ## 8. Validación
 
-Ver la sección de resultados en el README / índice de evidencias: la referencia no genera alertas, C1
-(operación normal) no genera alertas y C2 (noche) dispara ambas reglas.
+Ejecuciones oficiales con `cfg-0b5e664b118c` y `yolo11n@sha256:0ebbc80d4a76`. Los umbrales se fijaron
+con la referencia antes de procesar C1 y C2.
+
+| Ejecución | Ventanas | `low_ratio` (ventanas completas) | `mean_score` (ventanas completas) | Alertas |
+|---|---|---|---|---|
+| `20261108T155809Z-referencia-manana` | 15 normal | 0.459 – 0.638 | 0.460 – 0.519 | 0 |
+| `20261108T160249Z-referencia-tarde` | 13 normal, 2 fuera de rango (aisladas) | 0.568 – 0.720 | 0.443 – 0.507 | 0 |
+| `20261108T161753Z-c1-normal` (14:09 JST) | 7 normal, 1 incompleta | 0.585 – 0.696 | 0.452 – 0.494 | 0 |
+| `20261108T163302Z-c2-baja-confianza` (00:19 JST) | 7 fuera de rango, 1 incompleta | 0.683 – 0.793 | 0.402 – 0.440 | 4 episodios |
+
+Alertas de C2:
+
+| Alerta | Regla | Severidad | Abre | Estado al final |
+|---|---|---|---|---|
+| `alert-20261108T163302Z-c2-baja-confianza-baja-confianza-v1-w0001` | baja-confianza-v1 | warning | ventana 1 (0.754 > 0.724) | resuelta en la ventana 3 (0.717) |
+| `alert-20261108T163302Z-c2-baja-confianza-cambio-sostenido-v1-w0003` | cambio-sostenido-v1 | critical | ventana 3 (0.414, 0.402, 0.423 < 0.445) | abierta; 4 repeticiones suprimidas |
+| `alert-20261108T163302Z-c2-baja-confianza-baja-confianza-v1-w0004` | baja-confianza-v1 | warning | ventana 4 (0.733) | resuelta en la ventana 5 (0.683) |
+| `alert-20261108T163302Z-c2-baja-confianza-baja-confianza-v1-w0006` | baja-confianza-v1 | warning | ventana 6 (0.748) | abierta |
+
+Lectura:
+- La regla de proporción (`consecutive = 1`) es sensible y oscila en C2 alrededor de 0.724.
+- La regla de cambio sostenido (`consecutive = 3`) abre un solo episodio y lo mantiene mientras dura
+  la condición nocturna.
+- En las dos referencias, las dos ventanas de la tarde fuera de rango no se acumulan: quedan
+  separadas por ventanas normales, así que no alcanzan la racha de 3.
+- `uv run python -m monitor.evaluate <run>` recalcula ventanas y alertas desde `events.jsonl` y
+  coincide con lo registrado en las cuatro ejecuciones.
 
 ## 9. Limitaciones
 

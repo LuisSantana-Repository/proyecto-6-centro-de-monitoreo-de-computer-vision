@@ -7,8 +7,13 @@ __pycache__/
 *.pt
 *.onnx
 
-# Datos de trabajo (las evidencias seleccionadas sí se versionan en evidencias/)
-datos/runs/
+# Datos de trabajo. Las ejecuciones oficiales sí se versionan (registros primarios + imágenes)
+# para que sus image_ref resuelvan; la base SQLite se regenera con monitor.ingest.
+datos/runs/*
+!datos/runs/20261108T155809Z-referencia-manana/
+!datos/runs/20261108T160249Z-referencia-tarde/
+!datos/runs/20261108T161753Z-c1-normal/
+!datos/runs/20261108T163302Z-c2-baja-confianza/
 datos/grabaciones/
 datos/logs/
 datos/*.db

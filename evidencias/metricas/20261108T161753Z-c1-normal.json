@@ -1,0 +1,222 @@
+{
+  "run_id": "20261108T161753Z-c1-normal",
+  "label": "c1-normal",
+  "mode": "replay",
+  "replay_of": "20261108T050904Z-c1-normal",
+  "paced": true,
+  "config_ref": "cfg-0b5e664b118c",
+  "n_events": 450,
+  "window_size_frames": 60,
+  "metricas_base": {
+    "G1_tiempo_inferencia": {
+      "valor": 314.88,
+      "unidad": "ms",
+      "n": 450,
+      "estado": "ok",
+      "p95_ms": 442.8,
+      "max_ms": 1411.47,
+      "nota": "solo el modelo; excluye pre/postproceso y captura"
+    },
+    "G2_fps_procesamiento": {
+      "valor": 0.4999,
+      "unidad": "frames/s",
+      "n": 450,
+      "estado": "ok",
+      "span_s": 898.2,
+      "declarado_fps": 0.5
+    },
+    "G3_ram_proceso": {
+      "valor": 446.4,
+      "unidad": "MB (RSS, p95)",
+      "n": 450,
+      "estado": "ok",
+      "p50_mb": 442.0,
+      "max_mb": 450.5,
+      "cpu_percent_p50": 156.9
+    },
+    "G4_proporcion_baja_confianza": {
+      "valor": 0.6375,
+      "unidad": "proporción",
+      "n": 8867,
+      "estado": "ok",
+      "n_low": 5653,
+      "n_valid_frames": 450,
+      "definicion": "elegibles (s >= 0.25) con s < 0.5 / elegibles"
+    },
+    "G5_cobertura_trazabilidad": {
+      "valor": 1.0,
+      "unidad": "proporción de eventos completos",
+      "n": 450,
+      "estado": "ok",
+      "incompletos": 0,
+      "ejemplos": {},
+      "imagenes_referenciadas": 59
+    },
+    "G6_version_esperada_vs_reportada": {
+      "valor": 1.0,
+      "unidad": "proporción de eventos con la versión esperada",
+      "n": 450,
+      "estado": "ok",
+      "esperada": "yolo11n@sha256:0ebbc80d4a76",
+      "reportadas": {
+        "yolo11n@sha256:0ebbc80d4a76": 450
+      }
+    },
+    "G7_alertas_activas": {
+      "valor": 0,
+      "unidad": "alertas abiertas al final",
+      "n": 0,
+      "estado": "ok",
+      "max_por_ventana": 0,
+      "emitidas": 0,
+      "resueltas": 0
+    }
+  },
+  "contexto_fuente": {
+    "frames_received": 450,
+    "frames_sampled": 450,
+    "dropped_sampling": 0,
+    "dropped_saturation": 0,
+    "dropped_source_wait": 0,
+    "read_failures": 0,
+    "decode_failures": 0,
+    "reconnections": 0,
+    "last_frame_at": "2026-11-08T16:32:58.773Z",
+    "stream_meta": {
+      "replay_dir": "datos/grabaciones/20261108T050904Z-c1-normal",
+      "n_files": 450,
+      "paced": true,
+      "interval_s": 2.0
+    }
+  },
+  "ventanas": [
+    {
+      "idx": 1,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000001",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000060",
+      "start": "2026-11-08T16:18:00.753Z",
+      "end": "2026-11-08T16:19:58.751Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 248.94,
+      "G1_inferencia_p95_ms": 326.66,
+      "G2_fps_procesamiento": 0.4997,
+      "G3_rss_p95_mb": 445.5,
+      "G4_prop_baja_confianza": 0.5985,
+      "G4_n_elegibles": 1198,
+      "G7_alertas_activas": 0
+    },
+    {
+      "idx": 2,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000061",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000120",
+      "start": "2026-11-08T16:20:00.749Z",
+      "end": "2026-11-08T16:21:58.758Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 263.18,
+      "G1_inferencia_p95_ms": 431.34,
+      "G2_fps_procesamiento": 0.4993,
+      "G3_rss_p95_mb": 447.5,
+      "G4_prop_baja_confianza": 0.642,
+      "G4_n_elegibles": 1187,
+      "G7_alertas_activas": 0
+    },
+    {
+      "idx": 3,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000121",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000180",
+      "start": "2026-11-08T16:22:00.760Z",
+      "end": "2026-11-08T16:23:58.769Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 324.25,
+      "G1_inferencia_p95_ms": 480.89,
+      "G2_fps_procesamiento": 0.4995,
+      "G3_rss_p95_mb": 443.1,
+      "G4_prop_baja_confianza": 0.6593,
+      "G4_n_elegibles": 1221,
+      "G7_alertas_activas": 0
+    },
+    {
+      "idx": 4,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000181",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000240",
+      "start": "2026-11-08T16:24:00.760Z",
+      "end": "2026-11-08T16:25:58.761Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 333.1,
+      "G1_inferencia_p95_ms": 420.08,
+      "G2_fps_procesamiento": 0.5001,
+      "G3_rss_p95_mb": 444.6,
+      "G4_prop_baja_confianza": 0.6955,
+      "G4_n_elegibles": 1238,
+      "G7_alertas_activas": 0
+    },
+    {
+      "idx": 5,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000241",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000300",
+      "start": "2026-11-08T16:26:00.756Z",
+      "end": "2026-11-08T16:27:58.761Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 323.57,
+      "G1_inferencia_p95_ms": 414.46,
+      "G2_fps_procesamiento": 0.4989,
+      "G3_rss_p95_mb": 443.9,
+      "G4_prop_baja_confianza": 0.5845,
+      "G4_n_elegibles": 1396,
+      "G7_alertas_activas": 0
+    },
+    {
+      "idx": 6,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000301",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000360",
+      "start": "2026-11-08T16:28:00.767Z",
+      "end": "2026-11-08T16:29:58.770Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 329.2,
+      "G1_inferencia_p95_ms": 482.33,
+      "G2_fps_procesamiento": 0.4999,
+      "G3_rss_p95_mb": 445.0,
+      "G4_prop_baja_confianza": 0.6798,
+      "G4_n_elegibles": 1115,
+      "G7_alertas_activas": 0
+    },
+    {
+      "idx": 7,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000361",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000420",
+      "start": "2026-11-08T16:30:00.770Z",
+      "end": "2026-11-08T16:31:58.785Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 300.74,
+      "G1_inferencia_p95_ms": 368.81,
+      "G2_fps_procesamiento": 0.4999,
+      "G3_rss_p95_mb": 443.7,
+      "G4_prop_baja_confianza": 0.6611,
+      "G4_n_elegibles": 891,
+      "G7_alertas_activas": 0
+    },
+    {
+      "idx": 8,
+      "first_event_id": "evt-20261108T161753Z-c1-normal-f000421",
+      "last_event_id": "evt-20261108T161753Z-c1-normal-f000450",
+      "start": "2026-11-08T16:32:00.776Z",
+      "end": "2026-11-08T16:32:58.773Z",
+      "n_events": 30,
+      "completa": false,
+      "G1_inferencia_p50_ms": 337.42,
+      "G1_inferencia_p95_ms": 471.09,
+      "G2_fps_procesamiento": 0.5008,
+      "G3_rss_p95_mb": 418.8,
+      "G4_prop_baja_confianza": 0.5556,
+      "G4_n_elegibles": 621,
+      "G7_alertas_activas": 0
+    }
+  ]
+}

@@ -1,0 +1,142 @@
+{
+  "run_id": "20261108T163302Z-c2-baja-confianza",
+  "label": "c2-baja-confianza",
+  "started_at": "2026-11-08T16:33:16.667Z",
+  "config_path": "config/monitor.yaml",
+  "config_ref": "cfg-0b5e664b118c",
+  "config": {
+    "source": {
+      "id": "shibuya-scramble-01",
+      "url": "https://www.youtube.com/watch?v=dfVK7ld38Ys",
+      "format": "bv[height<=720]/bv",
+      "sample_interval_s": 2.0,
+      "reconnect_after_failures": 30,
+      "reconnect_backoff_s": 5.0
+    },
+    "model": {
+      "name": "yolo11n",
+      "weights": "modelo/yolo11n.pt",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt",
+      "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+      "device": "cpu",
+      "imgsz": 1280,
+      "conf_floor": 0.05,
+      "nms_iou": 0.7,
+      "max_det": 300,
+      "classes": [
+        0,
+        1,
+        2,
+        3,
+        5,
+        7
+      ]
+    },
+    "policy": {
+      "lower": 0.5,
+      "upper": 0.65,
+      "analysis_floor": 0.25
+    },
+    "windows": {
+      "size_frames": 60,
+      "min_valid_frames": 45,
+      "min_eligible": 300
+    },
+    "reference": {
+      "stats_file": "config/referencia.json",
+      "recordings": [
+        "datos/grabaciones/20261107T220327Z-referencia",
+        "datos/grabaciones/20261108T053156Z-referencia-tarde"
+      ]
+    },
+    "alerts": [
+      {
+        "rule_id": "baja-confianza-v1",
+        "signal": "low_ratio",
+        "op": ">",
+        "threshold": 0.724,
+        "consecutive": 1,
+        "severity": "warning",
+        "suggested_action": "Revisar las capturas de la ventana: iluminación, clima, oclusión o encuadre de la cámara. Una confianza baja no implica que las detecciones sean incorrectas."
+      },
+      {
+        "rule_id": "cambio-sostenido-v1",
+        "signal": "mean_score",
+        "op": "<",
+        "threshold": 0.445,
+        "consecutive": 3,
+        "severity": "critical",
+        "suggested_action": "Posible cambio sostenido respecto de la referencia (p. ej. noche, lluvia, cámara movida). Comparar con capturas de referencia; no confirma drift ni exige reentrenar."
+      }
+    ],
+    "capture": {
+      "normal_every_n_frames": 15,
+      "frame_mean_below": 0.38,
+      "frame_min_eligible": 5,
+      "on_no_detections": true,
+      "on_error": true
+    },
+    "output": {
+      "runs_dir": "datos/runs",
+      "db": "datos/monitor.db"
+    }
+  },
+  "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+  "model_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+  "class_names": {
+    "0": "person",
+    "1": "bicycle",
+    "2": "car",
+    "3": "motorcycle",
+    "5": "bus",
+    "7": "truck"
+  },
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel",
+    "torch": "2.15.0+cpu",
+    "ultralytics": "8.4.207",
+    "opencv": "4.14.0",
+    "cuda_available": false,
+    "cpu_count_logical": 12,
+    "ram_total_gb": 15.7
+  },
+  "mode": "replay",
+  "replay_of": "20261108T151924Z-c2-noche",
+  "paced": true,
+  "recording_dir": null,
+  "source_meta": {
+    "replay_dir": "datos/grabaciones/20261108T151924Z-c2-noche",
+    "n_files": 450,
+    "paced": true,
+    "interval_s": 2.0
+  },
+  "finished_at": "2026-11-08T16:48:15.197Z",
+  "counts": {
+    "ok": 450,
+    "no_detections": 0,
+    "inference_error": 0,
+    "invalid_input": 0,
+    "images": 93,
+    "windows": 8,
+    "alerts": 4
+  },
+  "source_stats": {
+    "frames_received": 450,
+    "frames_sampled": 450,
+    "dropped_sampling": 0,
+    "dropped_saturation": 0,
+    "dropped_source_wait": 0,
+    "read_failures": 0,
+    "decode_failures": 0,
+    "reconnections": 0,
+    "last_frame_at": "2026-11-08T16:48:14.772Z",
+    "stream_meta": {
+      "replay_dir": "datos/grabaciones/20261108T151924Z-c2-noche",
+      "n_files": 450,
+      "paced": true,
+      "interval_s": 2.0
+    }
+  }
+}

@@ -38,7 +38,7 @@
     <dt>Ejecución</dt><dd class="mono">{% if al.run_id %}<a href="/runs/{{ al.run_id }}">{{ al.run_id }}</a>{% else %}—{% endif %}</dd>
     <dt>Ventana</dt><dd class="mono">{{ al.window_start or '—' }} → {{ al.window_end or '—' }}</dd>
   </dl></div>
-  <div class="card"><b>Métrica que disparó la regla</b><pre>{{ al.metric|tojson(indent=2) }}</pre></div>
+  <div class="card"><b>Métrica que disparó la regla</b><pre>{{ al.metric|pretty }}</pre></div>
   <p><a href="/api/alertas/{{ al.alert_id }}">Ver JSON de la alerta</a></p>
 </div>
 </div>

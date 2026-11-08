@@ -37,6 +37,7 @@ class InferenceEvent(BaseModel):
     low_ratio: float | None = None     # detecciones low / detecciones puntuadas (None si no hay)
     timings: dict = {}
     e2e_ms: float | None = None        # captura -> evento listo
+    resources: dict = {}               # rss_mb, cpu_percent (proceso), disk_free_gb (psutil)
     image_ref: str | None = None
     capture_reason: str | None = None
     error: str | None = None

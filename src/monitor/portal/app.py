@@ -28,6 +28,7 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
     app = FastAPI(title="Proyecto 6: Centro de monitoreo de computer vision")
     templates = Jinja2Templates(directory=str(TEMPLATES))
     templates.env.filters["fromjson"] = json.loads
+    templates.env.filters["pretty"] = lambda v: json.dumps(v, indent=2, ensure_ascii=False)  # autoescapado por Jinja
 
     def rows(sql: str, params=()) -> list[dict]:
         con = sqlite3.connect(db_uri, uri=True)

@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import cv2
+import psutil
 
 from monitor.alerts import WindowEvaluator
 from monitor.config import config_ref, load_config, sha256_file
@@ -56,6 +57,22 @@ def capture_reason(cfg: dict, seq: int, status: str, dets: list[Detection]) -> s
     if seq % c["normal_every_n_frames"] == 0:
         return "muestra_normal"
     return None
+
+
+class ResourceProbe:
+    """Uso de recursos del proceso del monitor (G3), muestreado una vez por evento."""
+
+    def __init__(self, disk_path: Path):
+        self.proc = psutil.Process()
+        self.proc.cpu_percent(None)   # inicializa el contador; la siguiente lectura cubre el intervalo
+        self.disk_path = disk_path
+
+    def sample(self) -> dict:
+        return {
+            "rss_mb": round(self.proc.memory_info().rss / 2**20, 1),
+            "cpu_percent": round(self.proc.cpu_percent(None), 1),   # % de un núcleo desde la muestra anterior
+            "disk_free_gb": round(psutil.disk_usage(str(self.disk_path)).free / 2**30, 2),
+        }
 
 
 class JsonlLog:
@@ -127,6 +144,9 @@ def main() -> None:
     win_log = JsonlLog(run_dir / "windows.jsonl")
     alert_log = JsonlLog(run_dir / "alerts.jsonl")
     evaluator = WindowEvaluator(cfg, cref, run_id)
+    probe = ResourceProbe(run_dir)
+    manifest["environment"]["cpu_count_logical"] = psutil.cpu_count()
+    manifest["environment"]["ram_total_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
     counts = {"ok": 0, "no_detections": 0, "inference_error": 0, "invalid_input": 0, "images": 0,
               "windows": 0, "alerts": 0}
 
@@ -204,6 +224,7 @@ def main() -> None:
                 low_ratio=low_ratio,
                 timings=timings,
                 e2e_ms=round((time.perf_counter() - fr.t_capture) * 1000, 2),
+                resources=probe.sample(),
                 image_ref=image_ref,
                 capture_reason=reason,
                 error=err,

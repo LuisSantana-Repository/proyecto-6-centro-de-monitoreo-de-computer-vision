@@ -36,7 +36,7 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 
 | Módulo | Responsabilidad |
 |---|---|
-| [`source.py`](src/monitor/source.py) | Fuente en vivo (yt-dlp + OpenCV, reconexión, contadores de frames descartados) y replay |
+| [`source.py`](src/monitor/source.py) | Fuente en vivo (yt-dlp + OpenCV, reconexión con espera creciente, diagnóstico en `fuente.jsonl`, corte inyectable) y replay |
 | [`detector.py`](src/monitor/detector.py) | Carga del modelo, inferencia y tiempos |
 | [`policy.py`](src/monitor/policy.py) | Zonas de confianza con dos umbrales |
 | [`events.py`](src/monitor/events.py) | Contrato del evento de inferencia (Pydantic) |
@@ -45,7 +45,8 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`store.py`](src/monitor/store.py), [`ingest.py`](src/monitor/ingest.py) | Persistencia SQLite e ingesta idempotente desde los JSONL |
 | [`reference.py`](src/monitor/reference.py) | Estadísticas de referencia y umbrales derivados |
 | [`evaluate.py`](src/monitor/evaluate.py) | Recalcula ventanas y alertas desde `events.jsonl` y las compara con lo registrado |
-| [`metrics.py`](src/monitor/metrics.py) | Métricas base G1–G7 por ejecución y por ventana |
+| [`metrics.py`](src/monitor/metrics.py) | Métricas base G1–G7 y adicionales M2–M3 por ejecución y por ventana |
+| [`drift.py`](src/monitor/drift.py) | Métrica adicional M1: W1 de las puntuaciones frente a la referencia |
 | [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración |
 
 Documentación de decisiones:
@@ -78,7 +79,9 @@ configuración, `cfg-0b5e664b118c` en las evidencias) y `model_ref` (`yolo11n@sh
 | Reprocesar una grabación sin esperar (análisis) | `... --replay <carpeta> --no-pace` |
 | Estadísticas de referencia y umbrales derivados | `uv run python -m monitor.reference datos/runs/<ref1> datos/runs/<ref2> --out config/referencia.json` |
 | Recalcular ventanas y alertas y verificarlas | `uv run python -m monitor.evaluate datos/runs/<run_id>` |
-| Métricas G1–G7 | `uv run python -m monitor.metrics datos/runs/<run_id> --out-dir evidencias/metricas` |
+| Métricas G1–G7 (+ adicionales M1–M3) | `uv run python -m monitor.metrics datos/runs/<run_id> --out-dir evidencias/metricas` |
+| Desplazamiento de la distribución (M1) | `uv run python -m monitor.drift datos/runs/<run_id>` (referencia: `--build <ref1> <ref2>`) |
+| Escenario S1: corte de la fuente | `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --inject-outage 180:90 ...` |
 | Importar runs a SQLite (idempotente) | `uv run python -m monitor.ingest [datos/runs/<run_id> ...]` |
 | Portal de eventos y alertas | `uv run python -m monitor.portal` → http://127.0.0.1:8000 |
 
@@ -175,4 +178,11 @@ No se reutiliza código del Proyecto 5; la fuente es nueva.
 
 ## Extras
 
-Ninguno reclamado por ahora.
+Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`](docs/extras.md).
+
+| ID | Extra | Nivel solicitado |
+|---|---|---|
+| S1 | Escenario: interrupción y recuperación de la fuente ([`docs/escenario-s1.md`](docs/escenario-s1.md)) | 10 |
+| M1 | Métrica: desplazamiento de la distribución de puntuaciones frente a la referencia (W1) | 8 |
+| M2 | Métrica: latencia de punta a punta (frame → evento) | 5 |
+| M3 | Métrica: tiempo de recuperación de la fuente y disponibilidad | 5 |

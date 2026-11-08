@@ -1,0 +1,239 @@
+{
+  "run_id": "20261108T193149Z-s1-replay-interrupcion",
+  "label": "s1-replay-interrupcion",
+  "mode": "replay",
+  "replay_of": "20261108T050904Z-c1-normal",
+  "paced": true,
+  "config_ref": "cfg-3ebc8541e4f7",
+  "n_events": 240,
+  "window_size_frames": 60,
+  "metricas_base": {
+    "G1_tiempo_inferencia": {
+      "valor": 243.16,
+      "unidad": "ms",
+      "n": 195,
+      "estado": "ok",
+      "p95_ms": 314.16,
+      "max_ms": 388.03,
+      "nota": "solo el modelo; excluye pre/postproceso y captura"
+    },
+    "G2_fps_procesamiento": {
+      "valor": 0.4059,
+      "unidad": "frames/s",
+      "n": 195,
+      "estado": "ok",
+      "span_s": 477.9,
+      "declarado_fps": 0.5
+    },
+    "G3_ram_proceso": {
+      "valor": 450.0,
+      "unidad": "MB (RSS, p95)",
+      "n": 240,
+      "estado": "ok",
+      "p50_mb": 439.9,
+      "max_mb": 453.0,
+      "cpu_percent_p50": 127.3
+    },
+    "G4_proporcion_baja_confianza": {
+      "valor": 0.6552,
+      "unidad": "proporción",
+      "n": 4000,
+      "estado": "ok",
+      "n_low": 2621,
+      "n_valid_frames": 195,
+      "definicion": "elegibles (s >= 0.25) con s < 0.5 / elegibles"
+    },
+    "G5_cobertura_trazabilidad": {
+      "valor": 1.0,
+      "unidad": "proporción de eventos completos",
+      "n": 240,
+      "estado": "ok",
+      "incompletos": 0,
+      "ejemplos": {},
+      "imagenes_referenciadas": 27
+    },
+    "G6_version_esperada_vs_reportada": {
+      "valor": 1.0,
+      "unidad": "proporción de eventos con la versión esperada",
+      "n": 240,
+      "estado": "ok",
+      "esperada": "yolo11n@sha256:0ebbc80d4a76",
+      "reportadas": {
+        "yolo11n@sha256:0ebbc80d4a76": 240
+      }
+    },
+    "G7_alertas_activas": {
+      "valor": 0,
+      "unidad": "alertas abiertas al final",
+      "n": 1,
+      "estado": "ok",
+      "max_por_ventana": 1,
+      "emitidas": 1,
+      "resueltas": 1
+    }
+  },
+  "metricas_adicionales": {
+    "M1_desplazamiento_distribucion_W1": {
+      "valor": 0.0286,
+      "unidad": "puntos de confianza (W1)",
+      "n": 3,
+      "estado": "ok",
+      "umbral": 0.048,
+      "ventanas_sobre_umbral": 0,
+      "max_ventana": 0.0419,
+      "definicion": "W1 entre puntuaciones elegibles (s >= 0.25) y la referencia (20261108T155809Z-referencia-manana, 20261108T160249Z-referencia-tarde)",
+      "ventanas": [
+        {
+          "idx": 1,
+          "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000001",
+          "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000060",
+          "n_eligible": 1198,
+          "w1": 0.0242,
+          "supera_umbral": false
+        },
+        {
+          "idx": 2,
+          "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000061",
+          "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000120",
+          "n_eligible": 591,
+          "w1": null,
+          "supera_umbral": null
+        },
+        {
+          "idx": 3,
+          "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000121",
+          "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000180",
+          "n_eligible": 973,
+          "w1": 0.0242,
+          "supera_umbral": false
+        },
+        {
+          "idx": 4,
+          "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000181",
+          "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000240",
+          "n_eligible": 1238,
+          "w1": 0.0419,
+          "supera_umbral": false
+        }
+      ]
+    },
+    "M2_latencia_e2e": {
+      "valor": 265.58,
+      "unidad": "ms",
+      "n": 195,
+      "estado": "ok",
+      "p95_ms": 345.35,
+      "max_ms": 421.27,
+      "nota": "del frame obtenido al evento creado; excluye la escritura del evento"
+    },
+    "M3_recuperacion_fuente": {
+      "valor": 90.0,
+      "unidad": "s (media por incidente)",
+      "n": 1,
+      "estado": "ok",
+      "max_s": 90.0,
+      "incidentes_abiertos": 0,
+      "disponibilidad": 0.8125,
+      "incidentes": [
+        {
+          "alert_id": "alert-20261108T193149Z-s1-replay-interrupcion-fuente-interrumpida-v1-f000091",
+          "downtime_s": 90.0,
+          "n_invalid": 45,
+          "first_ok_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000136"
+        }
+      ]
+    }
+  },
+  "contexto_fuente": {
+    "frames_received": 195,
+    "frames_sampled": 240,
+    "dropped_sampling": 0,
+    "dropped_saturation": 0,
+    "dropped_source_wait": 0,
+    "read_failures": 0,
+    "decode_failures": 45,
+    "reconnect_attempts": 1,
+    "reconnections": 1,
+    "last_frame_at": "2026-11-08T19:39:54.585Z",
+    "stream_meta": {
+      "replay_dir": "datos/grabaciones/20261108T050904Z-c1-normal",
+      "n_files": 450,
+      "paced": true,
+      "interval_s": 2.0
+    }
+  },
+  "ventanas": [
+    {
+      "idx": 1,
+      "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000001",
+      "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000060",
+      "start": "2026-11-08T19:31:56.584Z",
+      "end": "2026-11-08T19:33:54.585Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 253.82,
+      "G1_inferencia_p95_ms": 315.32,
+      "G2_fps_procesamiento": 0.5,
+      "G3_rss_p95_mb": 444.9,
+      "G4_prop_baja_confianza": 0.5985,
+      "G4_n_elegibles": 1198,
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 342.74,
+      "M3_disponibilidad_fuente": 1.0
+    },
+    {
+      "idx": 2,
+      "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000061",
+      "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000120",
+      "start": "2026-11-08T19:33:56.585Z",
+      "end": "2026-11-08T19:35:54.585Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 229.74,
+      "G1_inferencia_p95_ms": 298.97,
+      "G2_fps_procesamiento": 0.5003,
+      "G3_rss_p95_mb": 448.4,
+      "G4_prop_baja_confianza": 0.7174,
+      "G4_n_elegibles": 591,
+      "G7_alertas_activas": 1,
+      "M2_e2e_p95_ms": 321.1,
+      "M3_disponibilidad_fuente": 0.5
+    },
+    {
+      "idx": 3,
+      "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000121",
+      "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000180",
+      "start": "2026-11-08T19:35:56.586Z",
+      "end": "2026-11-08T19:37:54.592Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 246.75,
+      "G1_inferencia_p95_ms": 303.33,
+      "G2_fps_procesamiento": 0.4996,
+      "G3_rss_p95_mb": 449.5,
+      "G4_prop_baja_confianza": 0.6362,
+      "G4_n_elegibles": 973,
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 321.05,
+      "M3_disponibilidad_fuente": 0.75
+    },
+    {
+      "idx": 4,
+      "first_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000181",
+      "last_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000240",
+      "start": "2026-11-08T19:37:56.585Z",
+      "end": "2026-11-08T19:39:54.585Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 228.76,
+      "G1_inferencia_p95_ms": 330.62,
+      "G2_fps_procesamiento": 0.5001,
+      "G3_rss_p95_mb": 451.2,
+      "G4_prop_baja_confianza": 0.6955,
+      "G4_n_elegibles": 1238,
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 354.97,
+      "M3_disponibilidad_fuente": 1.0
+    }
+  ]
+}

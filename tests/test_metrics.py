@@ -66,3 +66,25 @@ def test_g7_active_alerts_over_time():
     assert g7_active(eps, "2026-01-01T00:01:00Z") == 0
     assert g7_active(eps, "2026-01-01T00:04:00Z") == 1
     assert g7_active(eps, "2026-01-01T00:06:00Z") == 0
+
+
+def test_m2_e2e_latency_excludes_invalid_and_empty_is_null():
+    from monitor.metrics import m2_e2e_latency
+    evs = [ev(1, e2e_ms=300.0), ev(2, e2e_ms=500.0), ev(3, status="invalid_input", e2e_ms=3000.0)]
+    r = m2_e2e_latency(evs)
+    assert r["n"] == 2 and r["valor"] == 300.0 and r["p95_ms"] == 500.0
+    assert m2_e2e_latency([])["estado"] == "sin_datos"
+
+
+def test_m3_recovery_from_source_incidents():
+    from monitor.metrics import m3_recovery
+    log = [{"type": "alert", "alert_id": "a1", "rule_id": "fuente-interrumpida-v1"},
+           {"type": "update", "alert_id": "a1", "status": "resolved", "downtime_s": 90.0, "n_invalid": 45,
+            "first_ok_event_id": "e9"},
+           {"type": "alert", "alert_id": "a2", "rule_id": "fuente-interrumpida-v1"},          # sigue abierto
+           {"type": "alert", "alert_id": "b1", "rule_id": "baja-confianza-v1"}]               # otra regla: no cuenta
+    evs = [ev(1), ev(2, status="invalid_input"), ev(3), ev(4)]
+    r = m3_recovery(log, evs)
+    assert r["valor"] == 90.0 and r["n"] == 1 and r["incidentes_abiertos"] == 1 and r["disponibilidad"] == 0.75
+    none = m3_recovery([], evs[:1])
+    assert none["valor"] is None and none["estado"] == "sin_datos" and none["disponibilidad"] == 1.0

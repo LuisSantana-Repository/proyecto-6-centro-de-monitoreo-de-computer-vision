@@ -73,6 +73,159 @@
       "resueltas": 0
     }
   },
+  "metricas_adicionales": {
+    "M1_desplazamiento_distribucion_W1": {
+      "valor": 0.0175,
+      "unidad": "puntos de confianza (W1)",
+      "n": 15,
+      "estado": "ok",
+      "umbral": 0.048,
+      "ventanas_sobre_umbral": 0,
+      "max_ventana": 0.0465,
+      "definicion": "W1 entre puntuaciones elegibles (s >= 0.25) y la referencia (20261108T155809Z-referencia-manana, 20261108T160249Z-referencia-tarde)",
+      "ventanas": [
+        {
+          "idx": 1,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000001",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000060",
+          "n_eligible": 1358,
+          "w1": 0.0465,
+          "supera_umbral": false
+        },
+        {
+          "idx": 2,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000061",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000120",
+          "n_eligible": 1585,
+          "w1": 0.0374,
+          "supera_umbral": false
+        },
+        {
+          "idx": 3,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000121",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000180",
+          "n_eligible": 2056,
+          "w1": 0.0173,
+          "supera_umbral": false
+        },
+        {
+          "idx": 4,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000181",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000240",
+          "n_eligible": 1952,
+          "w1": 0.0174,
+          "supera_umbral": false
+        },
+        {
+          "idx": 5,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000241",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000300",
+          "n_eligible": 1921,
+          "w1": 0.0172,
+          "supera_umbral": false
+        },
+        {
+          "idx": 6,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000301",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000360",
+          "n_eligible": 2042,
+          "w1": 0.0198,
+          "supera_umbral": false
+        },
+        {
+          "idx": 7,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000361",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000420",
+          "n_eligible": 1918,
+          "w1": 0.0175,
+          "supera_umbral": false
+        },
+        {
+          "idx": 8,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000421",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000480",
+          "n_eligible": 2162,
+          "w1": 0.0218,
+          "supera_umbral": false
+        },
+        {
+          "idx": 9,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000481",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000540",
+          "n_eligible": 2022,
+          "w1": 0.0209,
+          "supera_umbral": false
+        },
+        {
+          "idx": 10,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000541",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000600",
+          "n_eligible": 2116,
+          "w1": 0.0154,
+          "supera_umbral": false
+        },
+        {
+          "idx": 11,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000601",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000660",
+          "n_eligible": 2156,
+          "w1": 0.0248,
+          "supera_umbral": false
+        },
+        {
+          "idx": 12,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000661",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000720",
+          "n_eligible": 2014,
+          "w1": 0.0143,
+          "supera_umbral": false
+        },
+        {
+          "idx": 13,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000721",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000780",
+          "n_eligible": 1841,
+          "w1": 0.0228,
+          "supera_umbral": false
+        },
+        {
+          "idx": 14,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000781",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000840",
+          "n_eligible": 1786,
+          "w1": 0.0262,
+          "supera_umbral": false
+        },
+        {
+          "idx": 15,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000841",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000900",
+          "n_eligible": 1996,
+          "w1": 0.0137,
+          "supera_umbral": false
+        }
+      ]
+    },
+    "M2_latencia_e2e": {
+      "valor": 248.88,
+      "unidad": "ms",
+      "n": 900,
+      "estado": "ok",
+      "p95_ms": 324.55,
+      "max_ms": 505.2,
+      "nota": "del frame obtenido al evento creado; excluye la escritura del evento"
+    },
+    "M3_recuperacion_fuente": {
+      "valor": null,
+      "unidad": "s (media por incidente)",
+      "n": 0,
+      "estado": "sin_datos",
+      "max_s": null,
+      "incidentes_abiertos": 0,
+      "disponibilidad": 1.0,
+      "incidentes": []
+    }
+  },
   "contexto_fuente": {
     "frames_received": 900,
     "frames_sampled": 900,
@@ -105,7 +258,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.4588,
       "G4_n_elegibles": 1358,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 304.75,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 2,
@@ -121,7 +276,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.4858,
       "G4_n_elegibles": 1585,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 310.92,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 3,
@@ -137,7 +294,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5686,
       "G4_n_elegibles": 2056,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 349.55,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 4,
@@ -153,7 +312,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5594,
       "G4_n_elegibles": 1952,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 314.3,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 5,
@@ -169,7 +330,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.569,
       "G4_n_elegibles": 1921,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 320.02,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 6,
@@ -185,7 +348,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5402,
       "G4_n_elegibles": 2042,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 290.93,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 7,
@@ -201,7 +366,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5412,
       "G4_n_elegibles": 1918,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 314.13,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 8,
@@ -217,7 +384,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.592,
       "G4_n_elegibles": 2162,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 293.26,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 9,
@@ -233,7 +402,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.6004,
       "G4_n_elegibles": 2022,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 298.25,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 10,
@@ -249,7 +420,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5652,
       "G4_n_elegibles": 2116,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 342.62,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 11,
@@ -265,7 +438,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.6378,
       "G4_n_elegibles": 2156,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 319.79,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 12,
@@ -281,7 +456,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5785,
       "G4_n_elegibles": 2014,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 287.77,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 13,
@@ -297,7 +474,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5307,
       "G4_n_elegibles": 1841,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 341.23,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 14,
@@ -313,7 +492,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5224,
       "G4_n_elegibles": 1786,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 374.31,
+      "M3_disponibilidad_fuente": 1.0
     },
     {
       "idx": 15,
@@ -329,7 +510,9 @@
       "G3_rss_p95_mb": null,
       "G4_prop_baja_confianza": 0.5792,
       "G4_n_elegibles": 1996,
-      "G7_alertas_activas": 0
+      "G7_alertas_activas": 0,
+      "M2_e2e_p95_ms": 324.55,
+      "M3_disponibilidad_fuente": 1.0
     }
   ]
 }

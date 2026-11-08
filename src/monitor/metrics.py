@@ -21,6 +21,7 @@ import numpy as np
 
 from monitor.alerts import window_stats
 from monitor.config import load_config
+from monitor import drift
 from monitor.events import InferenceEvent
 from monitor.policy import zone
 
@@ -144,8 +145,35 @@ def g7_active(eps: dict[str, dict], instant: str) -> int:
                if ts(e["opened_at"]) <= t and (e["resolved_at"] is None or ts(e["resolved_at"]) > t))
 
 
+# -- métricas adicionales -----------------------------------------------------------
+def m2_e2e_latency(events: list[InferenceEvent]) -> dict:
+    """M2 · latencia de punta a punta: del frame obtenido de la fuente al evento creado (inferencia,
+    pre/postproceso, zonas y captura incluidas). Etapa distinta de G1, que mide solo el modelo."""
+    v = [e.e2e_ms for e in events if e.status in VALID and e.e2e_ms is not None]
+    return result(pct(v, 50), "ms", len(v), p95_ms=pct(v, 95), max_ms=max(v) if v else None)
+
+
+def availability(events: list[InferenceEvent]) -> float | None:
+    """Proporción de muestras en las que la fuente entregó frame (status distinto de invalid_input)."""
+    return round(sum(e.status != "invalid_input" for e in events) / len(events), 4) if events else None
+
+
+def m3_recovery(alert_log: list[dict], events: list[InferenceEvent]) -> dict:
+    """M3 · tiempo de recuperación de la fuente: del primer frame perdido al primer frame recibido,
+    por incidente resuelto de la regla de salud de la fuente. Sin incidentes -> null (no hay qué medir)."""
+    opened = {r["alert_id"] for r in alert_log if r["type"] == "alert" and r["rule_id"].startswith("fuente-")}
+    inc = [{"alert_id": r["alert_id"], "downtime_s": r["downtime_s"], "n_invalid": r["n_invalid"],
+            "first_ok_event_id": r["first_ok_event_id"]}
+           for r in alert_log if r["type"] == "update" and r.get("alert_id") in opened and "downtime_s" in r]
+    d = [i["downtime_s"] for i in inc]
+    return result(round(sum(d) / len(d), 1) if d else None, "s (media por incidente)", len(d),
+                  max_s=max(d) if d else None, incidentes_abiertos=len(opened) - len(inc),
+                  disponibilidad=availability(events), incidentes=inc)
+
+
 # -- ejecución -------------------------------------------------------------------
-def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path(".")) -> dict:
+def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("."),
+            drift_ref: dict | None = None) -> dict:
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     cfg = manifest["config"]
     floor, lower = cfg["policy"]["analysis_floor"], cfg["policy"]["lower"]
@@ -170,6 +198,8 @@ def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("
             "G4_prop_baja_confianza": g4_low_ratio(ch, floor, lower)["valor"],
             "G4_n_elegibles": g4_low_ratio(ch, floor, lower)["n"],
             "G7_alertas_activas": g7_active(eps, ch[-1].captured_at) if eps else 0,
+            "M2_e2e_p95_ms": m2_e2e_latency(ch)["p95_ms"],
+            "M3_disponibilidad_fuente": availability(ch),
         })
 
     paced = manifest.get("paced", True)
@@ -195,6 +225,14 @@ def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("
                                          emitidas=len(eps),
                                          resueltas=sum(1 for e in eps.values() if e["resolved_at"])),
         },
+        "metricas_adicionales": {
+            # M1 · desplazamiento de la distribución de puntuaciones frente a la referencia (monitor.drift)
+            "M1_desplazamiento_distribucion_W1": drift.run_drift(events, cfg, drift_ref) if drift_ref else
+            {"valor": None, "estado": "sin_datos", "nota": "falta config/referencia-distribucion.json"},
+            "M2_latencia_e2e": {**m2_e2e_latency(events),
+                                "nota": "del frame obtenido al evento creado; excluye la escritura del evento"},
+            "M3_recuperacion_fuente": m3_recovery(alert_log, events),
+        },
         "contexto_fuente": manifest.get("source_stats"),
         "ventanas": windows,
     }
@@ -205,10 +243,12 @@ def main() -> None:
     ap.add_argument("runs", nargs="+")
     ap.add_argument("--config", default="config/monitor.yaml", help="configuración desplegada (versión esperada)")
     ap.add_argument("--out-dir", default=None)
+    ap.add_argument("--drift-ref", default=drift.REF_FILE, help="referencia de la métrica adicional M1")
     args = ap.parse_args()
     expected = load_config(args.config)
+    ref = drift.load_reference(args.drift_ref)
     for r in args.runs:
-        m = compute(Path(r), expected)
+        m = compute(Path(r), expected, drift_ref=ref)
         if args.out_dir:
             Path(args.out_dir).mkdir(parents=True, exist_ok=True)
             out = Path(args.out_dir) / f"{m['run_id']}.json"
@@ -218,6 +258,15 @@ def main() -> None:
             extra = {kk: vv for kk, vv in v.items() if kk not in ("valor", "unidad", "n", "estado", "ejemplos",
                                                                    "nota", "definicion", "reportadas")}
             print(f"   {k:34s} {str(v['valor']):>8} {v['unidad']:<40} n={v['n']:<6} {v['estado']:9s} {extra}")
+        ad = m["metricas_adicionales"]
+        d = ad["M1_desplazamiento_distribucion_W1"]
+        print(f"   {'M1_desplazamiento_distribucion_W1':34s} {str(d['valor']):>8} "
+              f"ventanas sobre {d.get('umbral')}: {d.get('ventanas_sobre_umbral')}/{d.get('n')}")
+        e = ad["M2_latencia_e2e"]
+        print(f"   {'M2_latencia_e2e':34s} {str(e['valor']):>8} ms p50 · p95 {e['p95_ms']} · n={e['n']}")
+        rc = ad["M3_recuperacion_fuente"]
+        print(f"   {'M3_recuperacion_fuente':34s} {str(rc['valor']):>8} s · incidentes={rc['n']} "
+              f"abiertos={rc['incidentes_abiertos']} disponibilidad={rc['disponibilidad']}")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ sección [Extras](#extras) abajo).
 | `b74506e` | Extra S1: salud de la fuente, reconexión con espera creciente, inyección de cortes, S1-R. |
 | `12d76dd` | Extras M1–M3 (`monitor.drift`, latencia de punta a punta, recuperación de la fuente). |
 | `061ba82` | Extra F1: gráficas por ventana en el portal. |
-| siguiente | Ejecuciones en vivo S1-V y S1-W, sus evidencias y el filtro de códigos ANSI en el registro de la fuente. |
+| `a18c724` | Ejecuciones en vivo S1-V y S1-W, sus evidencias y el filtro de códigos ANSI en el registro de la fuente. |
 
 Respecto de `0862536`, `50b3b0a` agrega:
 - la muestra de recursos del proceso por evento (`resources`, para G3);

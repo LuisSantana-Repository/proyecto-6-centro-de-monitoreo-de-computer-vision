@@ -48,6 +48,10 @@
   .muted { color:var(--muted); }
   pre { background:#fff; border:1px solid var(--borde); border-radius:8px; padding:12px; overflow:auto; font-size:12px; }
   .empty { padding:24px; text-align:center; color:var(--muted); background:#fff; border:1px dashed var(--borde); border-radius:10px; }
+  .chart { margin:0 0 20px; padding:12px 14px; background:#fcfcfb; border:1px solid var(--borde); border-radius:10px; }
+  .chart figcaption { margin-bottom:6px; }
+  .chart .hit:hover { fill:rgba(11,11,11,0.05); }
+  .chart-key { font-size:12px; margin:4px 0 0; }
 </style>
 </head>
 <body>
@@ -57,6 +61,7 @@
   <a href="/eventos" class="{{ 'on' if p.startswith('/eventos') }}">Eventos</a>
   <a href="/alertas" class="{{ 'on' if p.startswith('/alertas') }}">Alertas</a>
   <a href="/runs" class="{{ 'on' if p.startswith('/runs') }}">Ejecuciones</a>
+  <a href="/graficas" class="{{ 'on' if p.startswith('/graficas') }}">Gráficas</a>
   <a href="/docs">API</a>
 </header>
 <main>{% block content %}{% endblock %}</main>

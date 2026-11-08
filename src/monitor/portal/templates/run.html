@@ -23,7 +23,7 @@
     <dt>Inferencia media</dt><dd>{{ '%.0f ms'|format(s.inf_mean) if s.inf_mean is not none else '—' }}</dd>
     <dt>Primer / último frame</dt><dd class="mono">{{ s.first }} → {{ s.last }}</dd>
   </dl></div>
-  <h2>Ventanas de confianza ({{ windows|length }})</h2>
+  <h2>Ventanas de confianza ({{ windows|length }}) <a class="muted" style="font-size:14px" href="/graficas?run_id={{ r.run_id }}">ver gráficas</a></h2>
   {% if windows %}
   <table>
   <thead><tr><th class="num">#</th><th>Inicio → fin (UTC)</th><th class="num">Frames válidos</th><th class="num">Elegibles</th>

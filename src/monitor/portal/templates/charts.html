@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Gráficas por ventana{% endblock %}
+{% block content %}
+<h1>Gráficas por ventana</h1>
+{% if not runs %}
+<div class="empty">No hay ejecuciones registradas. Ejecuta <span class="mono">monitor.run</span> o <span class="mono">monitor.ingest</span>.</div>
+{% else %}
+<form class="filters" method="get">
+  <label>Ejecución
+    <select name="run_id" onchange="this.form.submit()">
+    {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if run_id == r.run_id }}>{{ r.run_id }}</option>{% endfor %}
+    </select></label>
+  <noscript><button type="submit">Ver</button></noscript>
+</form>
+<p class="muted">Configuración <a class="mono" href="/config/{{ d.config_ref }}">{{ d.config_ref }}</a> ·
+  {{ d.n_windows }} ventanas · valores exactos en la <a href="/runs/{{ run_id }}">tabla de ventanas</a> y en
+  <a class="mono" href="/api/runs/{{ run_id }}/graficas">/api/runs/{{ run_id }}/graficas</a>.</p>
+{% if d.n_windows == 0 %}
+<div class="empty">Esta ejecución no tiene ventanas registradas.</div>
+{% else %}
+{% for c in charts %}{{ c|safe }}{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}

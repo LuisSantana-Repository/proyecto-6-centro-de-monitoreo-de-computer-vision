@@ -88,3 +88,52 @@ def test_runs_config_and_404(client):
     assert client.get("/config/cfg-test").status_code == 200
     assert client.get("/eventos/no-existe").status_code == 404
     assert client.get("/alertas/no-existe").status_code == 404
+
+
+def _with_windows(tmp_path):
+    """Base con una ejecución con ventanas, una alerta de proporción y una de la fuente."""
+    from monitor.portal.app import create_app as _create
+    run = "20260102T000000Z-graf"
+    cfg = {"policy": {"lower": 0.5, "upper": 0.65, "analysis_floor": 0.25},
+           "windows": {"size_frames": 2, "min_valid_frames": 2, "min_eligible": 2},
+           "alerts": [{"rule_id": "baja-confianza-v1", "signal": "low_ratio", "op": ">", "threshold": 0.7}]}
+    st = Store(tmp_path / "g.db")
+    st.upsert_config("cfg-g", cfg)
+    st.upsert_run({"run_id": run, "label": "g", "mode": "replay", "started_at": "2026-01-02T00:00:00Z",
+                   "config_ref": "cfg-g", "model_ref": "m"})
+    states = [("normal", 0.6, 0.5), ("fuera_de_rango", 0.8, 0.4), ("insuficiente", None, None)]
+    for i, (state, lr, ms) in enumerate(states, start=1):
+        st.insert_window({"window_id": f"w{i}", "run_id": run, "idx": i, "config_ref": "cfg-g",
+                          "first_event_id": "a", "last_event_id": "b", "start": "s", "end": "e", "n_frames": 2,
+                          "n_valid": 2, "n_eligible": 10, "n_low": 5, "low_ratio": lr, "mean_score": ms,
+                          "state": state, "conditions": {}, "event_ids": [], "image_refs": []})
+    for aid, rule in ((f"alert-{run}-baja-confianza-v1-w0002", "baja-confianza-v1"),
+                      (f"alert-{run}-fuente-interrumpida-v1-f000005", "fuente-interrumpida-v1")):
+        st.insert_alert({"alert_id": aid, "rule_id": rule, "run_id": run, "timestamp": "t", "severity": "warning",
+                         "reason": "r", "suggested_action": "a", "config_ref": "cfg-g", "event_ids": []})
+    st.close()
+    return TestClient(_create(tmp_path / "g.db", root=tmp_path)), run
+
+
+def test_charts_series_gaps_and_alert_marks(tmp_path):
+    c, run = _with_windows(tmp_path)
+    d = c.get(f"/api/runs/{run}/graficas").json()
+    assert [p["value"] for p in d["low_ratio"]["points"]] == [0.6, 0.8, None]       # insuficiente: hueco, no 0
+    assert d["low_ratio"]["points"][1]["alerts"] == ["baja-confianza-v1"]
+    assert d["low_ratio"]["points"][2]["alerts"] == ["fuente-interrumpida-v1"]       # seq 5 -> ventana 3 (2 frames)
+    assert d["w1"]["has_reference"] is False and all(p["value"] is None for p in d["w1"]["points"])
+    html = c.get(f"/graficas?run_id={run}").text
+    assert html.count("<svg") == 2                         # sin referencia, W1 se muestra como estado vacío
+    assert "insuficiente" in html and "umbral &gt; 0.700" in html and "falta config/referencia-distribucion.json" in html
+
+
+def test_charts_empty_and_error_states(client, tmp_path):
+    r = client.get(f"/graficas?run_id={RUN}")              # ejecución sin ventanas
+    assert r.status_code == 200 and "no tiene ventanas registradas" in r.text
+    assert client.get("/graficas?run_id=no-existe").status_code == 404
+    assert client.get("/api/runs/no-existe/graficas").status_code == 404
+    empty = Store(tmp_path / "vacia.db")
+    empty.close()
+    from monitor.portal.app import create_app as _create
+    r = TestClient(_create(tmp_path / "vacia.db", root=tmp_path)).get("/graficas")
+    assert r.status_code == 200 and "No hay ejecuciones registradas" in r.text

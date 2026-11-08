@@ -47,7 +47,7 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`evaluate.py`](src/monitor/evaluate.py) | Recalcula ventanas y alertas desde `events.jsonl` y las compara con lo registrado |
 | [`metrics.py`](src/monitor/metrics.py) | Métricas base G1–G7 y adicionales M2–M3 por ejecución y por ventana |
 | [`drift.py`](src/monitor/drift.py) | Métrica adicional M1: W1 de las puntuaciones frente a la referencia |
-| [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración |
+| [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana |
 
 Documentación de decisiones:
 - [`docs/umbrales.md`](docs/umbrales.md): umbrales, zonas, referencia, ventanas y reglas.
@@ -186,3 +186,4 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | M1 | Métrica: desplazamiento de la distribución de puntuaciones frente a la referencia (W1) | 8 |
 | M2 | Métrica: latencia de punta a punta (frame → evento) | 5 |
 | M3 | Métrica: tiempo de recuperación de la fuente y disponibilidad | 5 |
+| F1 | Funcionalidad: gráficas por ventana en el portal (`/graficas`) | 10 |

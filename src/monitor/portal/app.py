@@ -7,14 +7,19 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sqlite3
 from pathlib import Path
 from urllib.parse import urlencode
 
 import cv2
+import numpy as np
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+
+from monitor import drift
+from monitor.portal.charts import window_chart
 
 TEMPLATES = Path(__file__).parent / "templates"
 PAGE_SIZE = 50
@@ -188,6 +193,86 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
         return templates.TemplateResponse(request, "run.html", {"r": r, "m": manifest, "s": stats,
                                                                 "windows": windows, "alerts": alerts,
                                                                 "health": health})
+
+    def chart_data(run_id: str) -> dict:
+        """Series por ventana de una ejecución: proporción baja, media y W1 frente a la referencia."""
+        r = one("SELECT run_id, config_ref FROM runs WHERE run_id = ?", (run_id,))
+        if not r:
+            raise HTTPException(404, f"Run no encontrado: {run_id}")
+        wins = rows("SELECT idx, state, low_ratio, mean_score, n_frames FROM windows WHERE run_id = ? ORDER BY idx",
+                    (run_id,))
+        if not wins:                                  # estado vacío: la ejecución no tiene ventanas
+            return {"run_id": run_id, "config_ref": r["config_ref"], "n_windows": 0}
+        cfg = json.loads(one("SELECT config_json FROM configs WHERE config_ref = ?", (r["config_ref"],))["config_json"])
+        size, wcfg = cfg["windows"]["size_frames"], cfg["windows"]
+        floor = cfg["policy"]["analysis_floor"]
+        marks: dict[int, list[str]] = {}
+        for a in rows("SELECT alert_id, rule_id FROM alerts WHERE run_id = ?", (run_id,)):
+            m = re.search(r"-w(\d{4})$", a["alert_id"]) or re.search(r"-f(\d{6})$", a["alert_id"])
+            if m:
+                idx = int(m.group(1)) if "-w" in m.group(0) else (int(m.group(1)) - 1) // size + 1
+                marks.setdefault(idx, []).append(a["rule_id"])
+        rules = {x["signal"]: x for x in cfg.get("alerts", [])}
+        ref = drift.load_reference(root / drift.REF_FILE)
+        evs = rows("SELECT seq, status, detections_json FROM events WHERE run_id = ? ORDER BY seq", (run_id,))
+        w1 = {}
+        for i in range(0, len(evs), size):
+            ch = evs[i:i + size]
+            sc = np.array([d["score"] for e in ch if e["status"] in ("ok", "no_detections")
+                           for d in json.loads(e["detections_json"]) if d["score"] >= floor])
+            n_valid = sum(e["status"] in ("ok", "no_detections") for e in ch)
+            ok = len(ch) == size and n_valid >= wcfg["min_valid_frames"] and len(sc) >= wcfg["min_eligible"]
+            w1[i // size + 1] = drift.w1(sc, ref["quantiles"]) if (ok and ref) else None
+
+        def pts(key):
+            return [{"idx": w["idx"], "value": (w[key] if w["state"] in ("normal", "fuera_de_rango") else None),
+                     "state": w["state"], "alerts": marks.get(w["idx"], [])} for w in wins]
+
+        return {
+            "run_id": run_id, "config_ref": r["config_ref"], "n_windows": len(wins),
+            "low_ratio": {"points": pts("low_ratio"), "rule": rules.get("low_ratio")},
+            "mean_score": {"points": pts("mean_score"), "rule": rules.get("mean_score")},
+            "w1": {"points": [{"idx": w["idx"], "value": w1.get(w["idx"]), "state": w["state"],
+                               "alerts": marks.get(w["idx"], [])} for w in wins],
+                   "threshold": ref["threshold"] if ref else None, "has_reference": ref is not None},
+        }
+
+    @app.get("/graficas", response_class=HTMLResponse)
+    def charts_page(request: Request, run_id: str = ""):
+        runs = run_options()
+        if not runs:
+            return templates.TemplateResponse(request, "charts.html", {"runs": [], "run_id": "", "charts": []})
+        run_id = run_id or runs[0]["run_id"]
+        d = chart_data(run_id)
+        if d["n_windows"] == 0:
+            return templates.TemplateResponse(request, "charts.html", {"runs": runs, "run_id": run_id, "charts": [],
+                                                                       "d": d})
+        lr, ms, w = d["low_ratio"], d["mean_score"], d["w1"]
+
+        def only(points, rule):     # cada gráfica marca las alertas de su regla y las de la fuente
+            keep = lambda r: r.startswith("fuente-") or (rule is not None and r == rule["rule_id"])
+            return [{**p, "alerts": [r for r in p["alerts"] if keep(r)]} for p in points]
+
+        lr["points"] = only(lr["points"], lr["rule"])
+        ms["points"] = only(ms["points"], ms["rule"])
+        w["points"] = only(w["points"], None)
+        charts = [
+            window_chart("Proporción de baja confianza (s < lower entre elegibles)", lr["points"],
+                         lr["rule"]["threshold"] if lr["rule"] else None, lr["rule"]["op"] if lr["rule"] else None,
+                         note=f"regla {lr['rule']['rule_id']}" if lr["rule"] else ""),
+            window_chart("Puntuación media de las detecciones elegibles", ms["points"],
+                         ms["rule"]["threshold"] if ms["rule"] else None, ms["rule"]["op"] if ms["rule"] else None,
+                         note=f"regla {ms['rule']['rule_id']}" if ms["rule"] else ""),
+            window_chart("Desplazamiento frente a la referencia (W1, métrica M1)", w["points"], w["threshold"], ">",
+                         fmt="{:.4f}", note="" if w["has_reference"] else "falta config/referencia-distribucion.json",
+                         has_rule=False),
+        ]
+        return templates.TemplateResponse(request, "charts.html", {"runs": runs, "run_id": run_id, "charts": charts,
+                                                                   "d": d})
+
+    @app.get("/api/runs/{run_id}/graficas")
+    def api_charts(run_id: str):
+        return chart_data(run_id)
 
     @app.get("/api/runs/{run_id}/ventanas")
     def api_windows(run_id: str):

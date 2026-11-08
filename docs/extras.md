@@ -10,6 +10,7 @@ forma de verificarlo.
 | **M1** | Métrica | Desplazamiento de la distribución de puntuaciones frente a la referencia (Wasserstein-1) | 8 | completo |
 | **M2** | Métrica | Latencia de punta a punta (frame → evento), p50/p95 por ejecución y por ventana | 5 | completo |
 | **M3** | Métrica | Tiempo de recuperación de la fuente y disponibilidad por ventana | 5 | completo (con S1-R) |
+| **F1** | Funcionalidad | Gráficas por ventana en el portal (proporción baja, media y W1, con umbrales, huecos y alertas) | 10 | completo |
 
 ---
 
@@ -62,6 +63,21 @@ Código: [`src/monitor/drift.py`](../src/monitor/drift.py).
 | **Resultado** | S1-R: 1 incidente, **90.0 s**, 45 muestras perdidas; disponibilidad 0.8125, con 0.50 en la ventana 2 y 0.75 en la 3. C1, C2 y referencias: sin incidentes, disponibilidad 1.0. |
 | **Recálculo** | `monitor.metrics` → `metricas_adicionales.M3_recuperacion_fuente` y `ventanas[].M3_disponibilidad_fuente`; [`tests/test_metrics.py`](../tests/test_metrics.py). |
 
+## F1 · Gráficas por ventana en el portal (funcionalidad, nivel 10)
+
+Flujo con consulta parametrizada, persistencia pertinente y verificación de resultados y de estados
+vacíos o erróneos. Código: [`src/monitor/portal/charts.py`](../src/monitor/portal/charts.py) y la ruta
+`/graficas` en [`app.py`](../src/monitor/portal/app.py).
+
+| | |
+|---|---|
+| **Qué hace** | `/graficas?run_id=<id>`: por ejecución, tres gráficas por ventana, una por señal y cada una con su escala: proporción de baja confianza, puntuación media y W1 (M1). Cada una tiene su umbral rotulado, el último valor rotulado y un tooltip por ventana. Las ventanas insuficientes o incompletas son un hueco con etiqueta, nunca 0. Los puntos que cruzan el umbral se dibujan huecos, una codificación de forma además de color. Las alertas se marcan en la ventana donde se abrieron: cada gráfica, las de su regla y las de la fuente. Hay selector de ejecución y enlaces a la tabla de ventanas y al JSON. |
+| **Datos** | Se leen de SQLite (`windows`, `alerts`, `events`, `configs`), en modo de solo lectura. W1 se calcula desde las detecciones guardadas contra `config/referencia-distribucion.json`. El umbral de cada gráfica sale de la configuración de esa ejecución (`config_ref`), no de la vigente. |
+| **API** | `/api/runs/<id>/graficas` devuelve las mismas series en JSON. Para C2, sus valores de W1 coinciden con `monitor.drift`. |
+| **Estados vacíos o erróneos** | Sin ejecuciones: mensaje. Ejecución sin ventanas: mensaje. Señal sin ventanas suficientes o sin referencia de W1: estado vacío con el motivo. Ejecución inexistente: 404 en HTML y API. Probado en [`tests/test_portal.py`](../tests/test_portal.py): `test_charts_series_gaps_and_alert_marks` y `test_charts_empty_and_error_states`. |
+| **Diseño** | Una serie por gráfica y nunca dos ejes. Color validado de la paleta de referencia (serie 1), rejilla recesiva y el umbral en tinta. La identidad nunca depende solo del color. |
+| **Evidencia** | [`evidencias/portal/12-graficas-c2.png`](../evidencias/portal/12-graficas-c2.png) (C2: alertas de proporción en las ventanas 1, 4 y 6; cambio sostenido en la 3; W1 sobre el umbral en 6/7), [`13-graficas-s1.png`](../evidencias/portal/13-graficas-s1.png) (S1-R: hueco "insuficiente" y alerta de la fuente en la ventana 2), [`14-graficas-c1.png`](../evidencias/portal/14-graficas-c1.png) (C1: todo dentro de los umbrales). |
+
 ## Control de doble conteo
 
 - M1 y la regla `cambio-sostenido-v1` (R3.3) usan la misma población, pero M1 compara distribuciones
@@ -70,3 +86,7 @@ Código: [`src/monitor/drift.py`](../src/monitor/drift.py).
 - M3 se deriva de los registros de S1, pero es un indicador distinto con su propio cálculo y prueba.
   S1 es el escenario: el comportamiento del sistema ante el fallo.
 - M2 y G1 miden etapas distintas, ambas instrumentadas (`e2e_ms` y `inference_ms`).
+- F1 es la visualización. Muestra W1 (M1), pero su aportación propia es la consulta parametrizada,
+  la presentación por ventana y el manejo de estados vacíos o erróneos. La rúbrica permite bonos
+  separados para una funcionalidad visual y la métrica que muestra. La tabla de ventanas de
+  `/runs/<id>` es base y no se reclama.

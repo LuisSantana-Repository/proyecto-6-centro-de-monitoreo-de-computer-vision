@@ -100,6 +100,13 @@ CREATE TABLE IF NOT EXISTS windows (
     image_refs_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_windows_run ON windows(run_id, idx);
+CREATE TABLE IF NOT EXISTS source_events (
+    run_id TEXT NOT NULL,
+    at TEXT NOT NULL,
+    type TEXT NOT NULL,
+    detail_json TEXT NOT NULL,
+    PRIMARY KEY (run_id, at, type)
+);
 CREATE TABLE IF NOT EXISTS ingest_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     at TEXT NOT NULL,
@@ -119,6 +126,10 @@ class Store:
         self.con = sqlite3.connect(self.path, check_same_thread=False)
         self.con.row_factory = sqlite3.Row
         self.con.executescript(SCHEMA)
+        # migración: bases creadas antes del escenario S1 no tienen esta columna
+        if "resolution_json" not in {r["name"] for r in self.con.execute("PRAGMA table_info(alerts)")}:
+            self.con.execute("ALTER TABLE alerts ADD COLUMN resolution_json TEXT")
+            self.con.commit()
 
     def close(self) -> None:
         self.con.close()
@@ -184,9 +195,14 @@ class Store:
         self.con.commit()
         return cur.rowcount == 1
 
-    UPDATABLE = ("status", "resolved_at", "resolved_by_window", "n_windows", "window_end", "suppressed_repeats")
+    UPDATABLE = ("status", "resolved_at", "resolved_by_window", "n_windows", "window_end", "suppressed_repeats",
+                 "resolution_json")
+    RESOLUTION = ("n_invalid", "downtime_s", "first_ok_event_id")   # detalle de la resolución (regla de la fuente)
 
     def update_alert(self, upd: dict) -> None:
+        res = {k: upd[k] for k in self.RESOLUTION if k in upd}
+        if res:
+            upd = {**upd, "resolution_json": json.dumps(res, ensure_ascii=False)}
         cols = [c for c in self.UPDATABLE if c in upd]
         if cols:
             self.con.execute(
@@ -205,6 +221,12 @@ class Store:
                 json.dumps(w["event_ids"]), json.dumps(w["image_refs"]),
             ),
         )
+        self.con.commit()
+
+    def insert_source_event(self, rec: dict) -> None:
+        detail = {k: v for k, v in rec.items() if k not in ("run_id", "at", "type")}
+        self.con.execute("INSERT OR IGNORE INTO source_events VALUES (?,?,?,?)",
+                         (rec["run_id"], rec["at"], rec["type"], json.dumps(detail, ensure_ascii=False)))
         self.con.commit()
 
     def apply_alert_log(self, record: dict) -> None:
@@ -242,6 +264,9 @@ class Store:
         if (run_dir / "alerts.jsonl").exists():
             for line in open(run_dir / "alerts.jsonl", encoding="utf-8"):
                 self.apply_alert_log(json.loads(line))
+        if (run_dir / "fuente.jsonl").exists():
+            for line in open(run_dir / "fuente.jsonl", encoding="utf-8"):
+                self.insert_source_event(json.loads(line))
         self.con.execute(
             "INSERT INTO ingest_log(at,run_id,inserted,duplicates,rejected,rejected_detail) "
             "VALUES (datetime('now'),?,?,?,?,?)",

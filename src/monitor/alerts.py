@@ -194,3 +194,84 @@ class WindowEvaluator:
             "event_ids": [eid for w in windows for eid in w.event_ids],
             "image_refs": [ref for w in windows for ref in w.image_refs],
         }
+
+
+class SourceHealthMonitor:
+    """Regla de salud de la fuente (escenario S1), evaluada evento por evento.
+
+    `consecutive_invalid` muestras seguidas sin frame (status invalid_input) abren UNA alerta; mientras
+    siga la interrupción no se repite. `recover_after_valid` muestras válidas seguidas la resuelven y
+    registran la duración de la caída (del primer frame perdido al primer frame recibido).
+    Las ventanas de confianza no cambian: los frames perdidos solo reducen n_valid y, si son muchos,
+    la ventana queda "insuficiente" (no se interpreta como normal ni como anómala).
+    """
+
+    def __init__(self, cfg: dict, config_ref: str, run_id: str):
+        self.rule = cfg.get("source_health")
+        self.config_ref = config_ref
+        self.run_id = run_id
+        self.bad: list[InferenceEvent] = []
+        self.good: list[InferenceEvent] = []
+        self.open: dict | None = None
+
+    def add(self, ev: InferenceEvent) -> tuple[list[dict], list[dict]]:
+        if not self.rule:
+            return [], []
+        r = self.rule
+        if ev.status == "invalid_input":
+            self.good = []
+            self.bad.append(ev)
+            if self.open is None and len(self.bad) >= r["consecutive_invalid"]:
+                alert = self._make_alert(self.bad)
+                self.open = {"alert_id": alert["alert_id"], "first": self.bad[0], "n_invalid": len(self.bad),
+                             "last_bad": ev}
+                return [alert], []
+            if self.open is not None:
+                self.open["n_invalid"] += 1
+                self.open["last_bad"] = ev
+            return [], []
+        if self.open is None:
+            self.bad = []                         # la racha exige muestras seguidas: un frame válido la corta
+            return [], []
+        self.good.append(ev)
+        if len(self.good) < r["recover_after_valid"]:
+            return [], []
+        ep, first_ok = self.open, self.good[0]
+        downtime = round(_secs(ep["first"].captured_at, first_ok.captured_at), 1)
+        upd = {"alert_id": ep["alert_id"], "status": "resolved", "resolved_at": ev.captured_at,
+               "resolved_by_window": ev.event_id, "window_end": ep["last_bad"].captured_at,
+               "n_invalid": ep["n_invalid"], "downtime_s": downtime, "first_ok_event_id": first_ok.event_id}
+        self.open, self.bad, self.good = None, [], []
+        return [], [upd]
+
+    def _make_alert(self, bad: list[InferenceEvent]) -> dict:
+        r = self.rule
+        return {
+            "alert_id": f"alert-{self.run_id}-{r['rule_id']}-f{bad[0].seq:06d}",
+            "rule_id": r["rule_id"],
+            "run_id": self.run_id,
+            "timestamp": utc_now_iso(),
+            "severity": r["severity"],
+            "status": "open",
+            "reason": (f"La fuente no entregó frames en {len(bad)} muestras seguidas desde {bad[0].captured_at} "
+                       f"(umbral {r['consecutive_invalid']}). Último error: {bad[-1].error}"),
+            "suggested_action": r["suggested_action"],
+            "config_ref": self.config_ref,
+            "window_start": bad[0].captured_at,
+            "window_end": bad[-1].captured_at,
+            "n_windows": None,
+            "suppressed_repeats": 0,
+            "metric": {"signal": "muestras_sin_frame_consecutivas", "op": ">=",
+                       "threshold": r["consecutive_invalid"], "value": len(bad),
+                       "recover_after_valid": r["recover_after_valid"],
+                       "errors": [e.error for e in bad]},
+            "event_ids": [e.event_id for e in bad],
+            "image_refs": [],
+        }
+
+
+def _secs(a: str, b: str) -> float:
+    from datetime import datetime
+
+    f = lambda s: datetime.fromisoformat(s.replace("Z", "+00:00"))
+    return (f(b) - f(a)).total_seconds()

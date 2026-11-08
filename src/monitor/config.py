@@ -9,8 +9,23 @@ from pathlib import Path
 import yaml
 
 
+def _merge(base: dict, over: dict) -> dict:
+    """Mezcla profunda: los diccionarios se combinan; cualquier otro valor de `over` reemplaza."""
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = _merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def _load_raw(path: Path) -> dict:
+    """Lee un YAML; si declara `base: otro.yaml`, lo carga primero y aplica encima solo lo que cambia."""
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    base = raw.pop("base", None)
+    return _merge(_load_raw(path.parent / base), raw) if base else raw
+
+
 def load_config(path: str | Path) -> dict:
-    cfg = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    cfg = _load_raw(Path(path))
     lower, upper = cfg["policy"]["lower"], cfg["policy"]["upper"]
     if not (0 <= lower < upper <= 1):
         raise ValueError(f"Umbrales inválidos: se requiere 0 <= lower ({lower}) < upper ({upper}) <= 1")
@@ -26,6 +41,9 @@ def load_config(path: str | Path) -> dict:
             raise ValueError(f"Regla inválida: {rule['rule_id']}")
         if rule["consecutive"] < 1:
             raise ValueError(f"consecutive debe ser >= 1 en {rule['rule_id']}")
+    sh = cfg.get("source_health")
+    if sh and (sh["consecutive_invalid"] < 1 or sh["recover_after_valid"] < 1):
+        raise ValueError("source_health: consecutive_invalid y recover_after_valid deben ser >= 1")
     return cfg
 
 

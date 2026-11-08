@@ -1,0 +1,23 @@
+# Escenario S1 · Interrupción y recuperación de la fuente.
+# Hereda TODO de monitor.yaml (modelo, política de confianza, ventanas, reglas, captura) y solo agrega
+# la detección de la caída y la regla de salud de la fuente. Por eso tiene su propio config_ref,
+# y monitor.yaml (cfg-0b5e664b118c, usado en C1/C2) no cambia.
+base: monitor.yaml
+
+source:
+  frame_timeout_s: 3.0          # una muestra sin frame en 3 s (1.5 x el intervalo) queda como invalid_input
+  stall_timeout_s: 5.0          # 5 s sin frames del stream -> se da por desconectado y se reconecta
+  read_timeout_s: 5             # timeout de lectura de OpenCV/FFmpeg (evita que grab() se bloquee)
+  open_timeout_s: 15
+  reconnect_backoff_s: 2.0      # espera entre intentos: 2, 4, 8, 16, 20, 20... s
+  reconnect_backoff_max_s: 20.0
+
+source_health:
+  rule_id: fuente-interrumpida-v1
+  consecutive_invalid: 3        # 3 muestras seguidas sin frame (~6-9 s) abren la alerta
+  recover_after_valid: 3        # 3 muestras válidas seguidas la resuelven
+  severity: critical
+  suggested_action: >-
+    Revisar la conectividad y la disponibilidad del stream (fuente.jsonl muestra cada intento de
+    reconexión y su error). Mientras dure la caída no hay inferencias; las ventanas afectadas quedan
+    "insuficientes" y no se interpretan como normales ni anómalas.

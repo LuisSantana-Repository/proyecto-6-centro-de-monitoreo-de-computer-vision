@@ -50,6 +50,20 @@
     {% if alerts %}<ul>{% for a in alerts %}<li><a href="/alertas/{{ a.alert_id }}">{{ a.rule_id }}</a> · <span class="badge sev-{{ a.severity }}">{{ a.severity }}</span> · {{ a.status }}</li>{% endfor %}</ul>
     {% else %}<p class="muted">Ninguna.</p>{% endif %}
   </div>
+  {% if health %}
+  <div class="card"><b>Salud de la fuente</b> <span class="muted">(fuente.jsonl)</span>
+    <table>
+    <tbody>
+    {% for h in health %}
+    <tr>
+      <td class="mono">{{ h.at }}</td>
+      <td><span class="badge {{ {'conectado': 's-ok', 'reconectado': 's-ok', 'lectura_recuperada': 's-ok', 'lectura_fallida': 'sev-warning', 'desconectado': 'sev-critical', 'reconexion_fallida': 'sev-critical'}.get(h.type, '') }}">{{ h.type }}</span></td>
+      <td class="muted">{% for k, v in h.detail.items() %}{{ k }}: {{ v }}<br>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+  </div>
+  {% endif %}
   <div class="card"><b>Contadores de la fuente</b>
     <dl>{% for k, v in (m.source_stats or {}).items() if k != 'stream_meta' %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>
     {% if not m.source_stats %}<p class="muted">Disponibles al terminar la ejecución.</p>{% endif %}

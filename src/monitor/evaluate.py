@@ -12,23 +12,28 @@ import argparse
 import json
 from pathlib import Path
 
-from monitor.alerts import WindowEvaluator
+from monitor.alerts import SourceHealthMonitor, WindowEvaluator
 from monitor.events import InferenceEvent
 
 
 def recompute(run_dir: Path) -> tuple[list[dict], list[dict]]:
+    """Ventanas y alertas (reglas de confianza por ventana + regla de salud de la fuente, si existe)."""
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
-    ev = WindowEvaluator(manifest["config"], manifest["config_ref"], manifest["run_id"])
+    args = (manifest["config"], manifest["config_ref"], manifest["run_id"])
+    ev, health = WindowEvaluator(*args), SourceHealthMonitor(*args)
     windows, alerts = [], []
     results = []
     for line in open(run_dir / "events.jsonl", encoding="utf-8"):
-        results.append(ev.add(InferenceEvent.model_validate_json(line)))
+        e = InferenceEvent.model_validate_json(line)
+        alerts += health.add(e)[0]        # mismo orden que run.py: regla de la fuente, luego ventana
+        results.append(ev.add(e))
     results.append(ev.flush())
+    window_alerts = []
     for win, new, _ in results:
         if win is not None:
             windows.append(win.record())
-        alerts += new
-    return windows, alerts
+        window_alerts += new
+    return windows, alerts + window_alerts
 
 
 def main() -> None:
@@ -44,8 +49,8 @@ def main() -> None:
         logged_a = [a for a in logged_a if a["type"] == "alert"]
         keys = ("window_id", "n_valid", "n_eligible", "n_low", "low_ratio", "mean_score", "state")
         w_ok = [{k: w[k] for k in keys} for w in windows] == [{k: w[k] for k in keys} for w in logged_w]
-        a_ok = [(a["alert_id"], a["rule_id"], a["event_ids"]) for a in alerts] == \
-               [(a["alert_id"], a["rule_id"], a["event_ids"]) for a in logged_a]
+        key = lambda a: (a["alert_id"], a["rule_id"], a["event_ids"])
+        a_ok = sorted(map(key, alerts)) == sorted(map(key, logged_a))
         ok_all &= w_ok and a_ok
         print(f"{r.name}: ventanas recalculadas={len(windows)} registradas={len(logged_w)} coinciden={w_ok} | "
               f"alertas recalculadas={len(alerts)} registradas={len(logged_a)} coinciden={a_ok}")

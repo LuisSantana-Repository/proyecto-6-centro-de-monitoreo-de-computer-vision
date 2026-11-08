@@ -14,6 +14,7 @@ datos/runs/*
 !datos/runs/20261108T160249Z-referencia-tarde/
 !datos/runs/20261108T161753Z-c1-normal/
 !datos/runs/20261108T163302Z-c2-baja-confianza/
+!datos/runs/20261108T193149Z-s1-replay-interrupcion/
 datos/grabaciones/
 datos/logs/
 datos/*.db

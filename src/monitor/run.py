@@ -5,6 +5,7 @@ Uso:
   uv run python -m monitor.run --frames 450 --record --label c1              # + guarda cada frame para replay
   uv run python -m monitor.run --replay datos/grabaciones/<run> --label x    # reproduce a 1 frame / 2 s
   uv run python -m monitor.run --replay ... --no-pace --label x              # reprocesa sin esperar (solo análisis)
+  uv run python -m monitor.run --config config/escenario-interrupcion.yaml --frames 240       --inject-outage 180:90 --label s1                                      # escenario S1: corte de la fuente
 """
 
 from __future__ import annotations
@@ -20,12 +21,12 @@ from pathlib import Path
 import cv2
 import psutil
 
-from monitor.alerts import WindowEvaluator
+from monitor.alerts import SourceHealthMonitor, WindowEvaluator
 from monitor.config import config_ref, load_config, sha256_file
 from monitor.detector import Detector
 from monitor.events import Detection, EventWriter, InferenceEvent
 from monitor.policy import LOW, zone, zone_counts
-from monitor.source import LiveYouTubeSource, ReplaySource, utc_now_iso
+from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource, utc_now_iso
 from monitor.store import Store
 
 
@@ -95,6 +96,8 @@ def main() -> None:
     ap.add_argument("--no-pace", action="store_true", help="replay sin esperar el intervalo (reprocesamiento)")
     ap.add_argument("--record", action="store_true", help="guardar cada frame muestreado para replay")
     ap.add_argument("--label", default="run", help="etiqueta del run (p. ej. referencia, c1, c2)")
+    ap.add_argument("--inject-outage", default=None, metavar="INICIO:DURACION",
+                    help="escenario S1: corta la fuente de INICIO a INICIO+DURACION segundos de stream")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -116,10 +119,11 @@ def main() -> None:
     if args.record:
         rec_dir.mkdir(parents=True, exist_ok=True)
 
+    fault = FaultPlan.parse(args.inject_outage) if args.inject_outage else None
     if args.replay:
-        source = ReplaySource(cfg, args.replay, pace=not args.no_pace)
+        source = ReplaySource(cfg, args.replay, pace=not args.no_pace, fault=fault)
     else:
-        source = LiveYouTubeSource(cfg)
+        source = LiveYouTubeSource(cfg, fault=fault)
     detector = Detector(cfg, model_sha)
     print(f"[{run_id}] modelo={detector.model_ref} config={cref} umbrales=({lower}, {upper})")
     detector.warmup()
@@ -139,11 +143,14 @@ def main() -> None:
         "replay_of": Path(args.replay).name if args.replay else None,
         "paced": not (args.replay and args.no_pace),
         "recording_dir": str(rec_dir) if args.record else None,
+        "fault_injection": fault.as_dict() if fault else None,
     }
     writer = EventWriter(run_dir / "events.jsonl")
     win_log = JsonlLog(run_dir / "windows.jsonl")
     alert_log = JsonlLog(run_dir / "alerts.jsonl")
+    health_log = JsonlLog(run_dir / "fuente.jsonl")
     evaluator = WindowEvaluator(cfg, cref, run_id)
+    health = SourceHealthMonitor(cfg, cref, run_id)
     probe = ResourceProbe(run_dir)
     manifest["environment"]["cpu_count_logical"] = psutil.cpu_count()
     manifest["environment"]["ram_total_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
@@ -156,17 +163,14 @@ def main() -> None:
     store.upsert_config(cref, cfg)
     store.upsert_run(manifest)
 
-    def handle_window(result) -> None:
-        win, new_alerts, updates = result
-        if win is None:
-            return
-        rec = win.record()
-        win_log.write(rec)
-        store.insert_window(rec)
-        counts["windows"] += 1
-        lr = f"{win.low_ratio:.3f}" if win.low_ratio is not None else "-"
-        ms = f"{win.mean_score:.3f}" if win.mean_score is not None else "-"
-        print(f"  == ventana {win.idx}: {win.state} (prop_baja={lr} media={ms} elegibles={win.n_eligible})")
+    def drain_source_health() -> None:
+        for h in source.drain_health():
+            rec = {"run_id": run_id, **h}
+            health_log.write(rec)
+            store.insert_source_event(rec)
+            print(f"  ~~ fuente: {h['type']} " + " ".join(f"{k}={v}" for k, v in h.items() if k not in ("at", "type")))
+
+    def handle_alerts(new_alerts, updates) -> None:
         for a in new_alerts:
             alert_log.write({"type": "alert", **a})
             store.insert_alert(a)
@@ -178,13 +182,26 @@ def main() -> None:
             if u.get("status") == "resolved":
                 print(f"  -- alerta resuelta: {u['alert_id']}")
 
+    def handle_window(result) -> None:
+        win, new_alerts, updates = result
+        if win is None:
+            return
+        rec = win.record()
+        win_log.write(rec)
+        store.insert_window(rec)
+        counts["windows"] += 1
+        lr = f"{win.low_ratio:.3f}" if win.low_ratio is not None else "-"
+        ms = f"{win.mean_score:.3f}" if win.mean_score is not None else "-"
+        print(f"  == ventana {win.idx}: {win.state} (prop_baja={lr} media={ms} elegibles={win.n_eligible})")
+        handle_alerts(new_alerts, updates)
+
     try:
         for fr in source.frames(args.frames):
             frame_id = f"{run_id}-f{fr.seq:06d}"
             dets, timings, err = [], {}, None
             if fr.image is None:
                 status = "invalid_input"
-                err = "frame no disponible o no decodificable"
+                err = fr.error or "frame no disponible o no decodificable"
             else:
                 if args.record:
                     cv2.imwrite(str(rec_dir / f"{fr.seq:06d}.jpg"), fr.image)
@@ -197,7 +214,8 @@ def main() -> None:
 
             zc = zone_counts([d.zone for d in dets])
             low_ratio = round(zc[LOW] / len(dets), 4) if dets else None
-            reason = capture_reason(cfg, fr.seq, status, dets)
+            # sin imagen (la fuente no entregó frame) no hay nada que capturar; el error queda en el evento
+            reason = capture_reason(cfg, fr.seq, status, dets) if fr.image is not None else None
             image_ref = None
             if reason and fr.image is not None:
                 p = img_dir / f"{frame_id}.jpg"
@@ -237,12 +255,16 @@ def main() -> None:
                 f"acc/dud/baja={zc['accepted']}/{zc['doubt']}/{zc['low']} "
                 f"inf={timings.get('inference_ms', '-')}ms img={reason or '-'}"
             )
+            drain_source_health()
+            handle_alerts(*health.add(ev))
             handle_window(evaluator.add(ev))
     except KeyboardInterrupt:
         print("Interrumpido por el usuario.")
     finally:
         handle_window(evaluator.flush())
         source.stop()
+        drain_source_health()
+        health_log.close()
         writer.close()
         win_log.close()
         alert_log.close()

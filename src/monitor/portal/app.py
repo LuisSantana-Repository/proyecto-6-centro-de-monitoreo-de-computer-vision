@@ -91,6 +91,7 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
         al["event_ids"] = json.loads(al.pop("event_ids_json"))
         al["metric"] = json.loads(al.pop("metric_json") or "{}")
         al["image_refs"] = json.loads(al.pop("image_refs_json") or "[]")
+        al["resolution"] = json.loads(al.pop("resolution_json", None) or "{}")
         return al
 
     def alerts_for_event(event_id: str) -> list[dict]:
@@ -149,7 +150,7 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
         ids = al["event_ids"]
         evs = rows(
             f"""SELECT event_id, seq, captured_at, status, n_detections, n_accepted, n_doubt, n_low,
-                       low_ratio, image_ref FROM events WHERE event_id IN ({",".join("?" * len(ids))})
+                       low_ratio, image_ref, error FROM events WHERE event_id IN ({",".join("?" * len(ids))})
                 ORDER BY captured_at""", ids) if ids else []
         return templates.TemplateResponse(request, "alert.html", {"al": al, "events": evs})
 
@@ -181,8 +182,12 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
             w["conditions"] = json.loads(w.pop("conditions_json"))
         alerts = rows("SELECT alert_id, rule_id, severity, status, timestamp FROM alerts WHERE run_id = ? "
                       "ORDER BY timestamp", (run_id,))
+        health = rows("SELECT at, type, detail_json FROM source_events WHERE run_id = ? ORDER BY at", (run_id,))
+        for h in health:
+            h["detail"] = json.loads(h.pop("detail_json"))
         return templates.TemplateResponse(request, "run.html", {"r": r, "m": manifest, "s": stats,
-                                                                "windows": windows, "alerts": alerts})
+                                                                "windows": windows, "alerts": alerts,
+                                                                "health": health})
 
     @app.get("/api/runs/{run_id}/ventanas")
     def api_windows(run_id: str):

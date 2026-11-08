@@ -6,10 +6,10 @@ forma de verificarlo.
 
 | ID | Tipo | Descripción | Nivel solicitado | Estado |
 |---|---|---|---|---|
-| **S1** | Escenario | Interrupción y recuperación de la fuente | 10 | S1-R completo; S1-V y S1-W pendientes de grabar en vivo |
+| **S1** | Escenario | Interrupción y recuperación de la fuente | 10 | completo: S1-R, S1-V y S1-W |
 | **M1** | Métrica | Desplazamiento de la distribución de puntuaciones frente a la referencia (Wasserstein-1) | 8 | completo |
 | **M2** | Métrica | Latencia de punta a punta (frame → evento), p50/p95 por ejecución y por ventana | 5 | completo |
-| **M3** | Métrica | Tiempo de recuperación de la fuente y disponibilidad por ventana | 5 | completo (con S1-R) |
+| **M3** | Métrica | Tiempo de recuperación de la fuente y disponibilidad por ventana | 5 | completo (con S1-R, S1-V y S1-W) |
 | **F1** | Funcionalidad | Gráficas por ventana en el portal (proporción baja, media y W1, con umbrales, huecos y alertas) | 10 | completo |
 
 ---
@@ -22,8 +22,20 @@ Detalle completo, variantes y cómo reproducirlo: [`docs/escenario-s1.md`](escen
 - **Por qué no es C1 ni C2.** Prueba la disponibilidad de la fuente, no la confianza. Agrega su
   propia regla (`fuente-interrumpida-v1`), un registro de diagnóstico (`fuente.jsonl`) y la
   reconexión con espera creciente.
-- **Evidencia:** la ejecución `20261108T193149Z-s1-replay-interrupcion` (S1-R) con `fuente.jsonl`,
-  `alerts.jsonl` y `windows.jsonl`, más [`tests/test_source_health.py`](../tests/test_source_health.py).
+- **Tres variantes ejecutadas:**
+
+  | Variante | Ejecución | Fallo | Caída (`downtime_s`) | Ventana del corte |
+  |---|---|---|---|---|
+  | S1-R | `20261108T193149Z-s1-replay-interrupcion` | inyectado en replay (determinista) | 90.0 s | insuficiente |
+  | S1-V | `20261108T222800Z-s1-vivo-interrupcion` | inyectado en vivo; 8 intentos de reconexión | 92.0 s | insuficiente |
+  | S1-W | `20261108T224433Z-s1-wifi` | WiFi apagado de verdad; falla de DNS; 7 intentos | 84.6 s | insuficiente |
+
+  Cada una abre **una** alerta crítica `fuente-interrumpida-v1`, que se resuelve sola, y
+  `monitor.evaluate` coincide. En S1-W el monitor detectó la caída 5 s antes que el lector.
+- **Evidencia:** `fuente.jsonl`, `alerts.jsonl` y `windows.jsonl` de cada ejecución; capturas del
+  portal [`15`](../evidencias/portal/15-run-s1-wifi.png)–[`19`](../evidencias/portal/19-graficas-s1-vivo.png);
+  [`tests/test_source_health.py`](../tests/test_source_health.py). Resultados por etapa en
+  [`docs/escenario-s1.md`](escenario-s1.md#resultados).
 
 ## M1 · Desplazamiento de la distribución frente a la referencia (métrica, nivel 8)
 
@@ -38,7 +50,7 @@ Código: [`src/monitor/drift.py`](../src/monitor/drift.py).
 | **Referencia** | Las dos ejecuciones de referencia de los umbrales (30 ventanas, 44 998 puntuaciones). Se guarda su función cuantil en [`config/referencia-distribucion.json`](../config/referencia-distribucion.json): `uv run python -m monitor.drift --build <ref1> <ref2>`. |
 | **Umbral** | 0.048: el máximo de W1 de cada ventana de referencia contra el resto de la referencia, dejando fuera esa ventana. La media es 0.0295 ± 0.0104. |
 | **Caso controlado** | Desplazar la referencia δ = 0.02 / 0.05 / 0.10 da W1 = 0.020 / 0.050 / 0.100 ([`tests/test_drift.py`](../tests/test_drift.py)). |
-| **Resultado** | Referencias: 0/30 ventanas sobre el umbral. **C1: 0/7** (máx. 0.042). **C2: 6/7** (W1 de la ejecución 0.0615, el doble que C1, 0.0282). S1-R: 0/3, con su ventana insuficiente en `null`. |
+| **Resultado** | Referencias: 0/30 ventanas sobre el umbral. **C1: 0/7** (máx. 0.042). **C2: 6/7** (W1 de la ejecución 0.0615, el doble que C1, 0.0282). S1-R: 0/3, con su ventana insuficiente en `null`. S1-V: 1/3 y S1-W: 3/3 (W1 0.0654), ambas con lluvia en Tokio, en línea con sus alertas de confianza. |
 | **Recálculo** | `uv run python -m monitor.drift datos/runs/<run_id>`; también en `metricas_adicionales` de `evidencias/metricas/<run_id>.json`. |
 | **Supuestos y límites** | La referencia mezcla una mañana con poca gente y una tarde con multitud, así que el umbral incluye esa variación normal. Las detecciones de un mismo frame no son independientes, por eso W1 no se usa como prueba estadística, solo como distancia con umbral empírico. El umbral sale de 30 ventanas. W1 resume la distribución completa: complementa la media de la regla `cambio-sostenido-v1` (capta cambios de forma, no solo de nivel), pero en C2 ambas reaccionan a lo mismo. |
 | **Alternativa descartada** | PSI con deciles de la referencia: depende de cómo se agrupan las puntuaciones, y la mezcla mañana/tarde lo infla (la referencia llega a 0.22 por ventana). Separaba peor: C2 solo 3/7 ventanas sobre el máximo de la referencia. |
@@ -50,7 +62,7 @@ Código: [`src/monitor/drift.py`](../src/monitor/drift.py).
 | **Definición** | `e2e_ms`: del momento en que la fuente entrega el frame (`t_capture`) a la creación del evento. Incluye preprocesamiento, inferencia, posprocesamiento, zonas y captura de imagen; excluye la escritura del evento. Se reporta p50 / p95 / máximo por ejecución y p95 por ventana. |
 | **Distinta de G1** | G1 mide solo `inference_ms`, el modelo. M2 mide la etapa completa del monitor. En C1 la diferencia de p50 es 349 − 315 ≈ 34 ms. |
 | **Población** | Eventos con inferencia válida; los `invalid_input` se excluyen, porque su espera es de la fuente y no del procesamiento. Sin eventos válidos: `null`. |
-| **Resultado** | C1 349 / 488 ms (p50 / p95); C2 338 / 445 ms; referencias ≈ 250 / 330 ms (`--no-pace`). |
+| **Resultado** | C1 349 / 488 ms (p50 / p95); C2 338 / 445 ms; referencias ≈ 250 / 330 ms (`--no-pace`). S1-V 108 / 128 ms y S1-W 115 / 140 ms: en vivo y con la laptop conectada a la corriente, así que no se comparan con C1 (ver los límites de [`escenario-s1.md`](escenario-s1.md#límites)). Lo que queda fuera del modelo (M2 − G1, p50) es unos 9 ms en S1-V y S1-W, frente a 34 ms en C1. |
 | **Recálculo** | `monitor.metrics` → `metricas_adicionales.M2_latencia_e2e` y `ventanas[].M2_e2e_p95_ms`; [`tests/test_metrics.py`](../tests/test_metrics.py). |
 
 ## M3 · Tiempo de recuperación de la fuente y disponibilidad (métrica, nivel 5)
@@ -60,7 +72,7 @@ Código: [`src/monitor/drift.py`](../src/monitor/drift.py).
 | **Definición** | Para cada incidente resuelto de `fuente-interrumpida-v1`: segundos del primer frame perdido al primer frame recibido (`downtime_s`). Se reporta la media y el máximo por ejecución, y los incidentes abiertos al final. La disponibilidad es la proporción de muestras con frame, por ejecución y por ventana. |
 | **Correlación de registros** | Incidente (`alerts.jsonl`, alerta + resolución) ↔ eventos perdidos (`n_invalid`, `first_ok_event_id` en `events.jsonl`) ↔ diagnóstico de la fuente (`fuente.jsonl`: `desconectado` → `reconectado`, `caida_s`). |
 | **Cero observaciones** | Sin incidentes, el tiempo de recuperación es `null` / `sin_datos`, no 0, que sugeriría una recuperación instantánea. Un incidente abierto al terminar no entra en la media; se cuenta en `incidentes_abiertos`. |
-| **Resultado** | S1-R: 1 incidente, **90.0 s**, 45 muestras perdidas; disponibilidad 0.8125, con 0.50 en la ventana 2 y 0.75 en la 3. C1, C2 y referencias: sin incidentes, disponibilidad 1.0. |
+| **Resultado** | S1-R: 1 incidente, **90.0 s**, 45 muestras perdidas; disponibilidad 0.8125, con 0.50 en la ventana 2 y 0.75 en la 3. S1-V: **92.0 s**, 31 muestras, disponibilidad 0.8708 (0.48 en la ventana 2). S1-W: **84.6 s**, 28 muestras, disponibilidad 0.8792 (0.55 en la ventana 2, 0.97 en la 3). C1, C2 y referencias: sin incidentes, disponibilidad 1.0. |
 | **Recálculo** | `monitor.metrics` → `metricas_adicionales.M3_recuperacion_fuente` y `ventanas[].M3_disponibilidad_fuente`; [`tests/test_metrics.py`](../tests/test_metrics.py). |
 
 ## F1 · Gráficas por ventana en el portal (funcionalidad, nivel 10)
@@ -76,7 +88,7 @@ vacíos o erróneos. Código: [`src/monitor/portal/charts.py`](../src/monitor/po
 | **API** | `/api/runs/<id>/graficas` devuelve las mismas series en JSON. Para C2, sus valores de W1 coinciden con `monitor.drift`. |
 | **Estados vacíos o erróneos** | Sin ejecuciones: mensaje. Ejecución sin ventanas: mensaje. Señal sin ventanas suficientes o sin referencia de W1: estado vacío con el motivo. Ejecución inexistente: 404 en HTML y API. Probado en [`tests/test_portal.py`](../tests/test_portal.py): `test_charts_series_gaps_and_alert_marks` y `test_charts_empty_and_error_states`. |
 | **Diseño** | Una serie por gráfica y nunca dos ejes. Color validado de la paleta de referencia (serie 1), rejilla recesiva y el umbral en tinta. La identidad nunca depende solo del color. |
-| **Evidencia** | [`evidencias/portal/12-graficas-c2.png`](../evidencias/portal/12-graficas-c2.png) (C2: alertas de proporción en las ventanas 1, 4 y 6; cambio sostenido en la 3; W1 sobre el umbral en 6/7), [`13-graficas-s1.png`](../evidencias/portal/13-graficas-s1.png) (S1-R: hueco "insuficiente" y alerta de la fuente en la ventana 2), [`14-graficas-c1.png`](../evidencias/portal/14-graficas-c1.png) (C1: todo dentro de los umbrales). |
+| **Evidencia** | [`evidencias/portal/12-graficas-c2.png`](../evidencias/portal/12-graficas-c2.png) (C2: alertas de proporción en las ventanas 1, 4 y 6; cambio sostenido en la 3; W1 sobre el umbral en 6/7), [`13-graficas-s1.png`](../evidencias/portal/13-graficas-s1.png) (S1-R: hueco "insuficiente" y alerta de la fuente en la ventana 2), [`14-graficas-c1.png`](../evidencias/portal/14-graficas-c1.png) (C1: todo dentro de los umbrales), [`17-graficas-s1-wifi.png`](../evidencias/portal/17-graficas-s1-wifi.png) y [`19-graficas-s1-vivo.png`](../evidencias/portal/19-graficas-s1-vivo.png) (en vivo: hueco del corte, alerta de la fuente y alertas de confianza por la lluvia, cada una en su gráfica). |
 
 ## Control de doble conteo
 

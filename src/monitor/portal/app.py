@@ -19,6 +19,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from monitor import drift
+from monitor.source import ANSI
 from monitor.portal.charts import window_chart
 
 TEMPLATES = Path(__file__).parent / "templates"
@@ -189,7 +190,9 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
                       "ORDER BY timestamp", (run_id,))
         health = rows("SELECT at, type, detail_json FROM source_events WHERE run_id = ? ORDER BY at", (run_id,))
         for h in health:
-            h["detail"] = json.loads(h.pop("detail_json"))
+            # los registros anteriores al filtro pueden traer códigos de color ANSI de yt-dlp
+            h["detail"] = {k: ANSI.sub("", v) if isinstance(v, str) else v
+                           for k, v in json.loads(h.pop("detail_json")).items()}
         return templates.TemplateResponse(request, "run.html", {"r": r, "m": manifest, "s": stats,
                                                                 "windows": windows, "alerts": alerts,
                                                                 "health": health})

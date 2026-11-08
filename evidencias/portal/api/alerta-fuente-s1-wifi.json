@@ -1,0 +1,40 @@
+{
+    "alert_id": "alert-20261108T224433Z-s1-wifi-fuente-interrumpida-v1-f000094",
+    "rule_id": "fuente-interrumpida-v1",
+    "run_id": "20261108T224433Z-s1-wifi",
+    "timestamp": "2026-11-08T22:48:03.851Z",
+    "severity": "critical",
+    "status": "resolved",
+    "reason": "La fuente no entregó frames en 3 muestras seguidas desde 2026-11-08T22:47:57.803Z (umbral 3). Último error: la fuente no entregó frame en 3 s (fuente conectado; último error: ninguno)",
+    "suggested_action": "Revisar la conectividad y la disponibilidad del stream (fuente.jsonl muestra cada intento de reconexión y su error). Mientras dure la caída no hay inferencias; las ventanas afectadas quedan \"insuficientes\" y no se interpretan como normales ni anómalas.",
+    "config_ref": "cfg-3ebc8541e4f7",
+    "window_start": "2026-11-08T22:47:57.803Z",
+    "window_end": "2026-11-08T22:49:21.442Z",
+    "n_windows": null,
+    "suppressed_repeats": 0,
+    "resolved_at": "2026-11-08T22:49:26.698Z",
+    "resolved_by_window": "evt-20261108T224433Z-s1-wifi-f000125",
+    "event_ids": [
+        "evt-20261108T224433Z-s1-wifi-f000094",
+        "evt-20261108T224433Z-s1-wifi-f000095",
+        "evt-20261108T224433Z-s1-wifi-f000096"
+    ],
+    "metric": {
+        "signal": "muestras_sin_frame_consecutivas",
+        "op": ">=",
+        "threshold": 3,
+        "value": 3,
+        "recover_after_valid": 3,
+        "errors": [
+            "la fuente no entregó frame en 3 s (fuente conectado; último error: ninguno)",
+            "la fuente no entregó frame en 3 s (fuente conectado; último error: ninguno)",
+            "la fuente no entregó frame en 3 s (fuente conectado; último error: ninguno)"
+        ]
+    },
+    "image_refs": [],
+    "resolution": {
+        "n_invalid": 28,
+        "downtime_s": 84.6,
+        "first_ok_event_id": "evt-20261108T224433Z-s1-wifi-f000123"
+    }
+}

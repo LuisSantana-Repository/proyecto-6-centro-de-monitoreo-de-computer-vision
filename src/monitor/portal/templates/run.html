@@ -58,7 +58,7 @@
     <tr>
       <td class="mono">{{ h.at }}</td>
       <td><span class="badge {{ {'conectado': 's-ok', 'reconectado': 's-ok', 'lectura_recuperada': 's-ok', 'lectura_fallida': 'sev-warning', 'desconectado': 'sev-critical', 'reconexion_fallida': 'sev-critical'}.get(h.type, '') }}">{{ h.type }}</span></td>
-      <td class="muted">{% for k, v in h.detail.items() %}{{ k }}: {{ v }}<br>{% endfor %}</td>
+      <td class="muted" style="overflow-wrap:anywhere">{% for k, v in h.detail.items() %}{{ k }}: {{ v }}<br>{% endfor %}</td>
     </tr>
     {% endfor %}
     </tbody></table>

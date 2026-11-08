@@ -63,6 +63,9 @@ uv run python -m monitor.run --config config/escenario-interrupcion.yaml \
 uv run python -m monitor.run --config config/escenario-interrupcion.yaml --frames 240 \
     --inject-outage 180:90 --label s1-vivo-interrupcion
 
+# S1-W (en vivo, sin inyección: apagar el WiFi hacia el minuto 3 durante ~60 s)
+uv run python -m monitor.run --config config/escenario-interrupcion.yaml --frames 240 --label s1-wifi
+
 # Verificar cualquiera de ellas
 uv run python -m monitor.evaluate datos/runs/<run_id>
 uv run python -m monitor.metrics  datos/runs/<run_id>
@@ -74,15 +77,95 @@ En S1-V el corte se cuenta desde que arranca la fuente, antes de la primera cone
 
 ## Resultados
 
-_Se completan con las ejecuciones oficiales._
+Las tres variantes usan `cfg-3ebc8541e4f7` y el mismo código de fuente. En las tres,
+`monitor.evaluate` recalcula las ventanas y las alertas (incluida la de la fuente) desde
+`events.jsonl` y coinciden con lo registrado. G5 = G6 = 1.0.
+
+| | S1-R · replay | S1-V · vivo, corte inyectado | S1-W · vivo, WiFi apagado |
+|---|---|---|---|
+| Ejecución | `20261108T193149Z-s1-replay-interrupcion` | `20261108T222800Z-s1-vivo-interrupcion` | `20261108T224433Z-s1-wifi` |
+| Hora en Tokio | 14:09 (grabación de C1) | 07:28, lluvia | 07:44, lluvia |
+| Corte | 90 s inyectados (t = 180–270 s de stream) | 90 s inyectados (t = 180–270 s desde que arranca la fuente) | real: el equipo pierde la red |
+| Error registrado | `desconectado` / `reconectado` del replay | `interrupción inyectada: sin acceso a la red` | `getaddrinfo failed`: no resuelve `www.youtube.com` (DNS) |
+| Intentos de reconexión | — | 7 fallidos (esperas de 2, 4, 8, 16, 20, 20 y 20 s); reconecta en el 8.º | 6 fallidos (2, 4, 8, 16, 20 y 20 s); reconecta en el 7.º |
+| Alerta `fuente-interrumpida-v1` | 1, resuelta | 1, resuelta | 1, resuelta |
+| Caída (`downtime_s`, M3) | **90.0 s** | **92.0 s** | **84.6 s** |
+| Caída según la conexión (`caida_s`) | — | 91.9 s | 73.4 s |
+| Muestras perdidas (`n_invalid`) | 45 | 31 | 28 |
+| Ventanas | 1 normal · **2 insuficiente** · 3–4 normal | 1 normal · **2 insuficiente** · 3–4 fuera de rango | 1 fuera de rango · **2 insuficiente** · 3–4 fuera de rango |
+| Disponibilidad (M3) | 0.8125 | 0.8708 | 0.8792 |
+| Otras alertas | ninguna | `baja-confianza-v1` en la ventana 4 | `baja-confianza-v1` desde la ventana 1; `cambio-sostenido-v1` en la 4 |
+
+### Lo que muestra cada etapa
+
+1. **Fallo y diagnóstico.** En S1-V el lector falla en cuanto empieza el corte: registra
+   `lectura_fallida` y, 3.2 s después, `desconectado`. En S1-W el corte es real y el lector se queda
+   esperando datos sin recibir un error. El límite de 3 s por muestra (`frame_timeout_s`) lo detecta
+   primero: la primera muestra sin frame es de las 22:47:57 y `lectura_fallida` llega a las 22:48:05.
+   Por eso las tres primeras muestras dicen "fuente conectado; último error: ninguno". Después,
+   cada intento de reconexión registra el error real de DNS.
+2. **Reacción.** Se abre **una sola** alerta crítica en la tercera muestra sin frame: 22:31:17 en
+   S1-V y 22:48:03 en S1-W. En S1-W eso es **5 s antes** de que el lector se declare
+   `desconectado` (22:48:08). Mientras dura la caída la alerta no se repite.
+3. **Recuperación.** La reconexión vuelve a resolver la URL con yt-dlp y abre el stream. En S1-V
+   la red "vuelve" a los 270 s (22:32:38) y el siguiente intento llega a las 22:32:41, porque la
+   espera creciente ya estaba en 20 s: la caída medida es 92.0 s para 90 s de corte. En S1-W
+   la red volvió entre el intento 6 (22:49:00, falló) y el 7 (22:49:20, funcionó).
+4. **Verificación posterior.** Tres frames válidos seguidos resuelven la alerta con `downtime_s`,
+   `n_invalid` y `first_ok_event_id`. La ventana del corte queda `insuficiente` en las tres
+   variantes: no se evalúa ni como normal ni como anómala y no produce alertas de confianza.
+
+### Dos medidas de la caída
+
+`downtime_s` va de la **primera muestra sin frame** a la **primera muestra con frame**: es la caída
+que vive el monitor, y es lo que reporta M3. `caida_s` va de `desconectado` a `reconectado`:
+es la caída de la conexión, según el lector. En S1-V casi coinciden (92.0 frente a 91.9 s) porque
+el lector detecta el corte inyectado de inmediato. En S1-W difieren 11 s: 8 s porque el monitor
+detectó la falta de frames antes que el lector, y 3 s porque se necesitan 3 muestras válidas para
+resolver.
+
+### Alertas de confianza durante S1-V y S1-W
+
+Las dos sesiones en vivo se hicieron temprano por la mañana en Tokio y con lluvia: hay muchos
+paraguas que tapan a las personas (capturas en `imagenes/` de cada ejecución). Las alertas de
+confianza son de la escena, no del corte:
+
+- En S1-W `baja-confianza-v1` ya estaba abierta en la ventana 1, **antes** de apagar el WiFi.
+- La ventana insuficiente no cuenta para las rachas, pero tampoco las reinicia. `cambio-sostenido-v1`
+  se abrió con las ventanas 1, 3 y 4 de S1-W.
+- M1 (W1) coincide: 3/3 ventanas sobre el umbral en S1-W y 1/3 en S1-V (la ventana 4).
+
+S1 no pretende que el resto de las señales esté en calma. Lo que se comprueba es que la regla de
+la fuente y las de confianza no se mezclan: la caída no abre alertas de confianza y la lluvia no
+abre alertas de la fuente.
+
+### Evidencia
+
+| Qué | Dónde |
+|---|---|
+| Registros primarios | `datos/runs/<ejecución>/`: `fuente.jsonl`, `events.jsonl` (`error` de cada muestra perdida), `alerts.jsonl`, `windows.jsonl`, `manifest.json` (`fault_injection`, `source_stats`) |
+| Métricas | [`evidencias/metricas/`](../evidencias/metricas/), una por ejecución (M3 en `metricas_adicionales`) |
+| Portal | [`15-run-s1-wifi.png`](../evidencias/portal/15-run-s1-wifi.png) (salud de la fuente), [`16-alerta-fuente-s1-wifi.png`](../evidencias/portal/16-alerta-fuente-s1-wifi.png) (alerta, evidencia y resolución), [`17-graficas-s1-wifi.png`](../evidencias/portal/17-graficas-s1-wifi.png), [`18-run-s1-vivo.png`](../evidencias/portal/18-run-s1-vivo.png), [`19-graficas-s1-vivo.png`](../evidencias/portal/19-graficas-s1-vivo.png), [`13-graficas-s1.png`](../evidencias/portal/13-graficas-s1.png) (S1-R) |
+| API | [`portal/api/alerta-fuente-s1-wifi.json`](../evidencias/portal/api/alerta-fuente-s1-wifi.json), [`portal/api/graficas-s1-vivo.json`](../evidencias/portal/api/graficas-s1-vivo.json) |
+| Pruebas | [`tests/test_source_health.py`](../tests/test_source_health.py) |
 
 ## Límites
 
 - **Qué simula la inyección.** Simula la falta de red a nivel de la fuente: `grab()` falla y la
   conexión se rechaza. No reproduce los modos de falla de la pila de red, como la latencia, los
-  segmentos HLS a medias o el DNS. S1-W cubre ese caso con un corte real.
+  segmentos HLS a medias o el DNS. S1-W cubre ese caso con un corte real, y en él aparecieron
+  justamente esos dos modos: el lector bloqueado sin error y la falla de DNS.
 - **La caída medida es mayor que el corte.** Incluye la espera de la reconexión: con espera
   creciente, el último intento puede llegar hasta 20 s después de que vuelve la red.
 - **Menos muestras durante la caída.** Cada muestra espera hasta 3 s, así que se registra
   aproximadamente una muestra cada 3 s, no cada 2 s. Los ticks perdidos quedan en
   `source_stats.dropped_source_wait`.
+- **El corte real no se cronometró por fuera.** En S1-W no hay una marca independiente de cuándo
+  se apagó y se encendió el WiFi; la duración sale de los registros del monitor.
+- **Códigos de color en el registro.** Los errores de yt-dlp traían códigos de color ANSI. Desde
+  esta revisión la fuente los quita antes de escribir `fuente.jsonl` (`error_text`); el
+  `fuente.jsonl` de S1-W es anterior y los conserva, y el portal los filtra al mostrarlo.
+- **G1 no es comparable con C1.** En S1-V y S1-W la inferencia tarda unos 100 ms (p50), frente a
+  315 ms en C1, con el mismo modelo, `imgsz`, configuración de inferencia y entorno. La laptop
+  estaba conectada a la corriente; es probable que en C1 estuviera con batería y en modo de ahorro,
+  pero eso no quedó registrado. S1 no usa G1 ni M2 para nada.

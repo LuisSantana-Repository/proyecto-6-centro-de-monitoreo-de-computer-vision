@@ -1,0 +1,121 @@
+{
+    "run_id": "20261108T222800Z-s1-vivo-interrupcion",
+    "config_ref": "cfg-3ebc8541e4f7",
+    "n_windows": 4,
+    "low_ratio": {
+        "points": [
+            {
+                "idx": 1,
+                "value": 0.7011,
+                "state": "normal",
+                "alerts": []
+            },
+            {
+                "idx": 2,
+                "value": null,
+                "state": "insuficiente",
+                "alerts": [
+                    "fuente-interrumpida-v1"
+                ]
+            },
+            {
+                "idx": 3,
+                "value": 0.7093,
+                "state": "fuera_de_rango",
+                "alerts": []
+            },
+            {
+                "idx": 4,
+                "value": 0.7691,
+                "state": "fuera_de_rango",
+                "alerts": [
+                    "baja-confianza-v1"
+                ]
+            }
+        ],
+        "rule": {
+            "consecutive": 1,
+            "op": ">",
+            "rule_id": "baja-confianza-v1",
+            "severity": "warning",
+            "signal": "low_ratio",
+            "suggested_action": "Revisar las capturas de la ventana: iluminación, clima, oclusión o encuadre de la cámara. Una confianza baja no implica que las detecciones sean incorrectas.",
+            "threshold": 0.724
+        }
+    },
+    "mean_score": {
+        "points": [
+            {
+                "idx": 1,
+                "value": 0.4468,
+                "state": "normal",
+                "alerts": []
+            },
+            {
+                "idx": 2,
+                "value": null,
+                "state": "insuficiente",
+                "alerts": [
+                    "fuente-interrumpida-v1"
+                ]
+            },
+            {
+                "idx": 3,
+                "value": 0.4433,
+                "state": "fuera_de_rango",
+                "alerts": []
+            },
+            {
+                "idx": 4,
+                "value": 0.4153,
+                "state": "fuera_de_rango",
+                "alerts": [
+                    "baja-confianza-v1"
+                ]
+            }
+        ],
+        "rule": {
+            "consecutive": 3,
+            "op": "<",
+            "rule_id": "cambio-sostenido-v1",
+            "severity": "critical",
+            "signal": "mean_score",
+            "suggested_action": "Posible cambio sostenido respecto de la referencia (p. ej. noche, lluvia, cámara movida). Comparar con capturas de referencia; no confirma drift ni exige reentrenar.",
+            "threshold": 0.445
+        }
+    },
+    "w1": {
+        "points": [
+            {
+                "idx": 1,
+                "value": 0.0345,
+                "state": "normal",
+                "alerts": []
+            },
+            {
+                "idx": 2,
+                "value": null,
+                "state": "insuficiente",
+                "alerts": [
+                    "fuente-interrumpida-v1"
+                ]
+            },
+            {
+                "idx": 3,
+                "value": 0.0368,
+                "state": "fuera_de_rango",
+                "alerts": []
+            },
+            {
+                "idx": 4,
+                "value": 0.0649,
+                "state": "fuera_de_rango",
+                "alerts": [
+                    "baja-confianza-v1"
+                ]
+            }
+        ],
+        "threshold": 0.048,
+        "has_reference": true
+    }
+}

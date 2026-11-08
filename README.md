@@ -167,7 +167,8 @@ No se reutiliza código del Proyecto 5; la fuente es nueva.
   (0.445). Una tarde con aún más gente o lluvia podría acercarse a la alerta (ver
   [`docs/umbrales.md`](docs/umbrales.md)).
 - **Tiempos de un solo equipo.** Son tiempos de CPU en una sola laptop con otras cargas; no son
-  un benchmark.
+  un benchmark. Dependen además del estado de energía: con la laptop conectada (S1-V y S1-W) la
+  inferencia tardó unos 100 ms, frente a 315 ms en C1 con el mismo modelo y configuración.
 - **Sin etiquetas de verdad.** La confianza del modelo es una señal indirecta de calidad, no de
   exactitud.
 - **Diferencias entre vivo y replay.** El replay usa JPEG grabados, lo que mueve ligeramente las
@@ -187,3 +188,13 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | M2 | Métrica: latencia de punta a punta (frame → evento) | 5 |
 | M3 | Métrica: tiempo de recuperación de la fuente y disponibilidad | 5 |
 | F1 | Funcionalidad: gráficas por ventana en el portal (`/graficas`) | 10 |
+
+**S1 en resumen.** Tres variantes con la misma regla `fuente-interrumpida-v1`. En las tres se abre
+una alerta crítica, que se resuelve sola, la ventana del corte queda `insuficiente` y
+`monitor.evaluate` coincide:
+
+| Variante | Ejecución | Fallo | Caída medida |
+|---|---|---|---|
+| S1-R | `20261108T193149Z-s1-replay-interrupcion` | corte inyectado de 90 s sobre la grabación de C1 | 90.0 s |
+| S1-V | `20261108T222800Z-s1-vivo-interrupcion` | corte inyectado de 90 s en vivo | 92.0 s |
+| S1-W | `20261108T224433Z-s1-wifi` | WiFi apagado de verdad (falla de DNS) | 84.6 s |

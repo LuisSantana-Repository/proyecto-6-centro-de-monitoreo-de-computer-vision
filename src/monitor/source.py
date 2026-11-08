@@ -11,6 +11,7 @@ run.py escribe en fuente.jsonl. Una interrupción se puede inyectar (FaultPlan) 
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -24,6 +25,13 @@ import numpy as np
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
+
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def error_text(e: BaseException) -> str:
+    """Texto del error para los registros: tipo + mensaje, sin códigos de color ANSI (yt-dlp los usa)."""
+    return ANSI.sub("", f"{type(e).__name__}: {e}")
 
 @dataclass
 class Frame:
@@ -189,7 +197,7 @@ class LiveYouTubeSource(HealthLog):
                 try:
                     self._connect()
                 except Exception as e:
-                    self._last_error = f"{type(e).__name__}: {e}"
+                    self._last_error = error_text(e)
                     wait = min(self.backoff * 2 ** (attempt - 1), self.backoff_max)
                     self._log("reconexion_fallida", intento=attempt, error=self._last_error, espera_s=wait)
                     self.state = "desconectado"
@@ -205,7 +213,7 @@ class LiveYouTubeSource(HealthLog):
             try:
                 ok = self._grab()
             except Exception as e:
-                ok, self._last_error = False, f"{type(e).__name__}: {e}"
+                ok, self._last_error = False, error_text(e)
             if not ok:
                 self.stats.read_failures += 1
                 fails += 1

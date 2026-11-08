@@ -1,0 +1,243 @@
+{
+  "run_id": "20261108T224433Z-s1-wifi",
+  "label": "s1-wifi",
+  "mode": "live",
+  "replay_of": null,
+  "paced": true,
+  "config_ref": "cfg-3ebc8541e4f7",
+  "n_events": 240,
+  "window_size_frames": 60,
+  "metricas_base": {
+    "G1_tiempo_inferencia": {
+      "valor": 105.53,
+      "unidad": "ms",
+      "n": 211,
+      "estado": "ok",
+      "p95_ms": 129.03,
+      "max_ms": 260.39,
+      "nota": "solo el modelo; excluye pre/postproceso y captura"
+    },
+    "G2_fps_procesamiento": {
+      "valor": 0.3953,
+      "unidad": "frames/s",
+      "n": 211,
+      "estado": "ok",
+      "span_s": 531.2,
+      "declarado_fps": 0.5
+    },
+    "G3_ram_proceso": {
+      "valor": 537.2,
+      "unidad": "MB (RSS, p95)",
+      "n": 240,
+      "estado": "ok",
+      "p50_mb": 531.7,
+      "max_mb": 540.2,
+      "cpu_percent_p50": 107.7
+    },
+    "G4_proporcion_baja_confianza": {
+      "valor": 0.7352,
+      "unidad": "proporción",
+      "n": 3792,
+      "estado": "ok",
+      "n_low": 2788,
+      "n_valid_frames": 211,
+      "definicion": "elegibles (s >= 0.25) con s < 0.5 / elegibles"
+    },
+    "G5_cobertura_trazabilidad": {
+      "valor": 1.0,
+      "unidad": "proporción de eventos completos",
+      "n": 240,
+      "estado": "ok",
+      "incompletos": 0,
+      "ejemplos": {},
+      "imagenes_referenciadas": 53
+    },
+    "G6_version_esperada_vs_reportada": {
+      "valor": 1.0,
+      "unidad": "proporción de eventos con la versión esperada",
+      "n": 240,
+      "estado": "ok",
+      "esperada": "yolo11n@sha256:0ebbc80d4a76",
+      "reportadas": {
+        "yolo11n@sha256:0ebbc80d4a76": 240
+      }
+    },
+    "G7_alertas_activas": {
+      "valor": 2,
+      "unidad": "alertas abiertas al final",
+      "n": 3,
+      "estado": "ok",
+      "max_por_ventana": 2,
+      "emitidas": 3,
+      "resueltas": 1
+    }
+  },
+  "metricas_adicionales": {
+    "M1_desplazamiento_distribucion_W1": {
+      "valor": 0.0654,
+      "unidad": "puntos de confianza (W1)",
+      "n": 3,
+      "estado": "ok",
+      "umbral": 0.048,
+      "ventanas_sobre_umbral": 3,
+      "max_ventana": 0.0753,
+      "definicion": "W1 entre puntuaciones elegibles (s >= 0.25) y la referencia (20261108T155809Z-referencia-manana, 20261108T160249Z-referencia-tarde)",
+      "ventanas": [
+        {
+          "idx": 1,
+          "first_event_id": "evt-20261108T224433Z-s1-wifi-f000001",
+          "last_event_id": "evt-20261108T224433Z-s1-wifi-f000060",
+          "n_eligible": 924,
+          "w1": 0.0753,
+          "supera_umbral": true
+        },
+        {
+          "idx": 2,
+          "first_event_id": "evt-20261108T224433Z-s1-wifi-f000061",
+          "last_event_id": "evt-20261108T224433Z-s1-wifi-f000120",
+          "n_eligible": 729,
+          "w1": null,
+          "supera_umbral": null
+        },
+        {
+          "idx": 3,
+          "first_event_id": "evt-20261108T224433Z-s1-wifi-f000121",
+          "last_event_id": "evt-20261108T224433Z-s1-wifi-f000180",
+          "n_eligible": 1065,
+          "w1": 0.0553,
+          "supera_umbral": true
+        },
+        {
+          "idx": 4,
+          "first_event_id": "evt-20261108T224433Z-s1-wifi-f000181",
+          "last_event_id": "evt-20261108T224433Z-s1-wifi-f000240",
+          "n_eligible": 1074,
+          "w1": 0.0674,
+          "supera_umbral": true
+        }
+      ]
+    },
+    "M2_latencia_e2e": {
+      "valor": 114.83,
+      "unidad": "ms",
+      "n": 211,
+      "estado": "ok",
+      "p95_ms": 140.41,
+      "max_ms": 334.11,
+      "nota": "del frame obtenido al evento creado; excluye la escritura del evento"
+    },
+    "M3_recuperacion_fuente": {
+      "valor": 84.6,
+      "unidad": "s (media por incidente)",
+      "n": 1,
+      "estado": "ok",
+      "max_s": 84.6,
+      "incidentes_abiertos": 0,
+      "disponibilidad": 0.8792,
+      "incidentes": [
+        {
+          "alert_id": "alert-20261108T224433Z-s1-wifi-fuente-interrumpida-v1-f000094",
+          "downtime_s": 84.6,
+          "n_invalid": 28,
+          "first_ok_event_id": "evt-20261108T224433Z-s1-wifi-f000123"
+        }
+      ]
+    }
+  },
+  "contexto_fuente": {
+    "frames_received": 13550,
+    "frames_sampled": 240,
+    "dropped_sampling": 13310,
+    "dropped_saturation": 0,
+    "dropped_source_wait": 25,
+    "read_failures": 30,
+    "decode_failures": 29,
+    "reconnect_attempts": 7,
+    "reconnections": 1,
+    "last_frame_at": "2026-11-08T22:53:30.080Z",
+    "stream_meta": {
+      "title": "【ライブ】いまの渋谷・スクランブル交差点　ライブカメラ　Shibuya Scramble Crossing - Tokyo, Japan　 Live Cam 2026-11-08 16:49",
+      "channel": "FNNプライムオンライン",
+      "live_status": "is_live",
+      "format_id": "232",
+      "width": 1280,
+      "height": 720,
+      "fps": 30.0,
+      "resolved_at": "2026-11-08T22:49:21.868Z"
+    }
+  },
+  "ventanas": [
+    {
+      "idx": 1,
+      "first_event_id": "evt-20261108T224433Z-s1-wifi-f000001",
+      "last_event_id": "evt-20261108T224433Z-s1-wifi-f000060",
+      "start": "2026-11-08T22:44:38.897Z",
+      "end": "2026-11-08T22:46:43.930Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 102.88,
+      "G1_inferencia_p95_ms": 230.48,
+      "G2_fps_procesamiento": 0.4718,
+      "G3_rss_p95_mb": 530.7,
+      "G4_prop_baja_confianza": 0.7998,
+      "G4_n_elegibles": 924,
+      "G7_alertas_activas": 1,
+      "M2_e2e_p95_ms": 261.15,
+      "M3_disponibilidad_fuente": 1.0
+    },
+    {
+      "idx": 2,
+      "first_event_id": "evt-20261108T224433Z-s1-wifi-f000061",
+      "last_event_id": "evt-20261108T224433Z-s1-wifi-f000120",
+      "start": "2026-11-08T22:46:45.994Z",
+      "end": "2026-11-08T22:49:15.384Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 101.96,
+      "G1_inferencia_p95_ms": 127.51,
+      "G2_fps_procesamiento": 0.4014,
+      "G3_rss_p95_mb": 530.8,
+      "G4_prop_baja_confianza": 0.6296,
+      "G4_n_elegibles": 729,
+      "G7_alertas_activas": 2,
+      "M2_e2e_p95_ms": 134.94,
+      "M3_disponibilidad_fuente": 0.55
+    },
+    {
+      "idx": 3,
+      "first_event_id": "evt-20261108T224433Z-s1-wifi-f000121",
+      "last_event_id": "evt-20261108T224433Z-s1-wifi-f000180",
+      "start": "2026-11-08T22:49:18.412Z",
+      "end": "2026-11-08T22:51:22.785Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 108.02,
+      "G1_inferencia_p95_ms": 127.81,
+      "G2_fps_procesamiento": 0.4732,
+      "G3_rss_p95_mb": 537.8,
+      "G4_prop_baja_confianza": 0.7315,
+      "G4_n_elegibles": 1065,
+      "G7_alertas_activas": 1,
+      "M2_e2e_p95_ms": 135.38,
+      "M3_disponibilidad_fuente": 0.9667
+    },
+    {
+      "idx": 4,
+      "first_event_id": "evt-20261108T224433Z-s1-wifi-f000181",
+      "last_event_id": "evt-20261108T224433Z-s1-wifi-f000240",
+      "start": "2026-11-08T22:51:24.902Z",
+      "end": "2026-11-08T22:53:30.080Z",
+      "n_events": 60,
+      "completa": true,
+      "G1_inferencia_p50_ms": 107.03,
+      "G1_inferencia_p95_ms": 129.03,
+      "G2_fps_procesamiento": 0.4714,
+      "G3_rss_p95_mb": 537.5,
+      "G4_prop_baja_confianza": 0.7551,
+      "G4_n_elegibles": 1074,
+      "G7_alertas_activas": 2,
+      "M2_e2e_p95_ms": 141.64,
+      "M3_disponibilidad_fuente": 1.0
+    }
+  ]
+}

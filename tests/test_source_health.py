@@ -7,7 +7,7 @@ import numpy as np
 from monitor.alerts import SourceHealthMonitor
 from monitor.config import load_config
 from monitor.events import InferenceEvent
-from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource
+from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource, error_text
 
 RULE = {"rule_id": "fuente-interrumpida-v1", "consecutive_invalid": 3, "recover_after_valid": 3,
         "severity": "critical", "suggested_action": "revisar"}
@@ -129,3 +129,9 @@ def test_live_reader_disconnects_retries_and_recovers():
     assert missing and all(f.error for f in missing)
     assert frames[0].image is not None and frames[-1].image is not None   # se recupera
     assert src.stats.reconnections == 1 and src.stats.reconnect_attempts >= 2
+
+
+def test_error_text_strips_ansi_color_codes():
+    # yt-dlp colorea "ERROR:"; el registro de la fuente debe guardar texto limpio
+    e = RuntimeError("\x1b[0;31mERROR:\x1b[0m [youtube] x: Failed to resolve 'www.youtube.com'")
+    assert error_text(e) == "RuntimeError: ERROR: [youtube] x: Failed to resolve 'www.youtube.com'"

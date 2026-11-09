@@ -7,6 +7,7 @@ Uso:
   uv run python -m monitor.run --replay ... --no-pace --label x              # reprocesa sin esperar (solo análisis)
   uv run python -m monitor.run --config config/escenario-interrupcion.yaml --frames 240       --inject-outage 180:90 --label s1                                      # escenario S1: corte de la fuente
   uv run python -m monitor.run --config config/escenario-version.yaml --replay ... --frames 240       --swap-model yolo11s:150:210 --label s2                                # escenario S2: cambio de versión
+  uv run python -m monitor.run --config config/escenario-inferencia.yaml --replay ... --frames 240 --inject-inference-error corrupcion:150 --label s3a   # escenario S3: error de inferencia
 """
 
 from __future__ import annotations
@@ -22,9 +23,9 @@ from pathlib import Path
 import cv2
 import psutil
 
-from monitor.alerts import ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
+from monitor.alerts import InferenceHealthMonitor, ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
 from monitor.config import config_ref, load_config, sha256_file
-from monitor.detector import Detector, SwapPlan
+from monitor.detector import Detector, InferenceFault, SwapPlan
 from monitor.events import Detection, EventWriter, InferenceEvent
 from monitor.live import LiveWriter
 from monitor.policy import LOW, zone, zone_counts
@@ -105,6 +106,9 @@ def main() -> None:
     ap.add_argument("--swap-model", default=None, metavar="NOMBRE:INICIO:DURACION",
                     help="escenario S2: usa el modelo NOMBRE (model_alternatives) de INICIO a INICIO+DURACION "
                          "segundos de stream, sin cambiar la configuración, y luego vuelve al configurado")
+    ap.add_argument("--inject-inference-error", default=None, metavar="MODO:INICIO[:DURACION]",
+                    help="escenario S3: corrupcion:INICIO (estado del modelo corrupto; la recarga lo arregla) o "
+                         "persistente:INICIO:DURACION (la inferencia falla durante el intervalo)")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -127,6 +131,7 @@ def main() -> None:
         rec_dir.mkdir(parents=True, exist_ok=True)
 
     fault = FaultPlan.parse(args.inject_outage) if args.inject_outage else None
+    ifault = InferenceFault.parse(args.inject_inference_error) if args.inject_inference_error else None
     if args.replay:
         source = ReplaySource(cfg, args.replay, pace=not args.no_pace, fault=fault)
     else:
@@ -172,6 +177,7 @@ def main() -> None:
         "recording_dir": str(rec_dir) if args.record else None,
         "fault_injection": fault.as_dict() if fault else None,
         "model_swap": swap_info,
+        "inference_fault": ifault.as_dict() if ifault else None,
     }
     writer = EventWriter(run_dir / "events.jsonl")
     win_log = JsonlLog(run_dir / "windows.jsonl")
@@ -180,11 +186,14 @@ def main() -> None:
     evaluator = WindowEvaluator(cfg, cref, run_id)
     health = SourceHealthMonitor(cfg, cref, run_id)
     version = ModelVersionMonitor(cfg, cref, run_id)
+    inference = InferenceHealthMonitor(cfg, cref, run_id)
+    # S3: registro de la reacción (recargas del modelo y su efecto); solo si la regla o el fallo existen
+    inf_log = JsonlLog(run_dir / "inferencia.jsonl") if (cfg.get("inference_health") or ifault) else None
     probe = ResourceProbe(run_dir)
     manifest["environment"]["cpu_count_logical"] = psutil.cpu_count()
     manifest["environment"]["ram_total_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
     counts = {"ok": 0, "no_detections": 0, "inference_error": 0, "invalid_input": 0, "images": 0,
-              "windows": 0, "alerts": 0}
+              "windows": 0, "alerts": 0, "reloads": 0}
     # F4 · vista en vivo: estado actual para el portal (/vivo); no es registro primario
     live_dir = Path(cfg["output"]["runs_dir"]).parent / "vivo"
     live = None if args.sin_vivo else LiveWriter(live_dir, manifest, args.frames)
@@ -240,6 +249,27 @@ def main() -> None:
         print(f"  == ventana {win.idx}: {win.state} (prop_baja={lr} media={ms} elegibles={win.n_eligible})")
         handle_alerts(new_alerts, updates)
 
+    def reload_model(ev: InferenceEvent) -> Detector | None:
+        """Reacción de S3: recarga el modelo desde los pesos, verificando antes su SHA-256."""
+        t0, new, err = time.perf_counter(), None, None
+        sha = sha256_file(weights)
+        try:
+            if sha != cfg["model"]["sha256"]:
+                raise RuntimeError(f"los pesos en disco no coinciden con el SHA-256 declarado ({sha[:12]})")
+            new = Detector(cfg, sha)
+            new.warmup()
+        except Exception as e:
+            new, err = None, f"{type(e).__name__}: {e}"
+        rec = {"run_id": run_id, "at": utc_now_iso(), "type": "recarga_modelo", "seq": ev.seq, "event_id": ev.event_id,
+               "n_errores_seguidos": len(inference.bad), "sha256_verificado": sha == cfg["model"]["sha256"],
+               "resultado": "cargado" if new else "error", "error": err,
+               "duracion_ms": round((time.perf_counter() - t0) * 1000, 1)}
+        inf_log.write(rec)
+        inference.note_reload(rec)
+        counts["reloads"] += 1
+        print(f"  >> reacción: recarga del modelo ({rec['resultado']}, {rec['duracion_ms']} ms)")
+        return new
+
     try:
         for fr in source.frames(args.frames):
             frame_id = f"{run_id}-f{fr.seq:06d}"
@@ -252,6 +282,8 @@ def main() -> None:
                 if args.record:
                     cv2.imwrite(str(rec_dir / f"{fr.seq:06d}.jpg"), fr.image)
                 try:
+                    if ifault:
+                        ifault.apply(det, (fr.seq - 1) * interval)
                     raw, timings = det.predict(fr.image)
                     dets = [Detection(**d, zone=zone(d["score"], lower, upper)) for d in raw]
                     status = "ok" if dets else "no_detections"
@@ -304,6 +336,13 @@ def main() -> None:
             drain_source_health()
             handle_alerts(*health.add(ev))
             handle_alerts(*version.add(ev))
+            new_a, upd_a, inf_recs, want_reload = inference.add(ev)
+            for rec in inf_recs:
+                inf_log.write(rec)
+                print(f"  >> recarga {rec['efecto']}: la muestra #{rec['seq']} quedó {rec['status_siguiente']}")
+            handle_alerts(new_a, upd_a)
+            if want_reload:
+                detector = reload_model(ev) or detector
             handle_window(evaluator.add(ev))
             if live:
                 live.update(ev, fr.image, evaluator.buf, live_ctx["last_window"], live_ctx["open_alerts"],
@@ -318,6 +357,8 @@ def main() -> None:
         writer.close()
         win_log.close()
         alert_log.close()
+        if inf_log:
+            inf_log.close()
         manifest["finished_at"] = utc_now_iso()
         manifest["counts"] = counts
         if live:

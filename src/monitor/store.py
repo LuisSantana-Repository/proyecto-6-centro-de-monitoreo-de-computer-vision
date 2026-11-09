@@ -215,7 +215,8 @@ class Store:
     UPDATABLE = ("status", "resolved_at", "resolved_by_window", "n_windows", "window_end", "suppressed_repeats",
                  "resolution_json")
     # detalle de la resolución: regla de la fuente (S1) y regla de versión (S2)
-    RESOLUTION = ("n_invalid", "downtime_s", "n_mismatch", "duration_s", "reported_model_refs", "first_ok_event_id")
+    RESOLUTION = ("n_invalid", "downtime_s", "n_mismatch", "duration_s", "reported_model_refs", "first_ok_event_id",
+                  "n_errors", "n_reloads", "reload_effective", "recovered_by")   # ... y de inferencia (S3)
 
     def update_alert(self, upd: dict) -> None:
         res = {k: upd[k] for k in self.RESOLUTION if k in upd}

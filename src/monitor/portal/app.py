@@ -272,6 +272,17 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
             "f": {"run_id": run_id, "severity": severity, "rule_id": rule_id, "status": status, "revision": revision},
         })
 
+    def reaction(al: dict) -> list[dict]:
+        """S3: recargas del modelo y su efecto durante el episodio, leídas del registro primario inferencia.jsonl."""
+        f = root / runs_dir / (al["run_id"] or "") / "inferencia.jsonl"
+        if not al["rule_id"].startswith("inferencia-") or not al["run_id"] or not f.is_file():
+            return []
+        first = int(al["alert_id"].rsplit("-f", 1)[1])
+        end = al["resolution"].get("first_ok_event_id")
+        last = int(end.rsplit("-f", 1)[1]) if end else 10**9
+        recs = [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
+        return [r for r in recs if first <= r["seq"] <= last]
+
     def render_alert(request: Request, alert_id: str, status_code: int = 200, **review) -> HTMLResponse:
         al = alert_or_404(alert_id)
         ids = al["event_ids"]
@@ -282,7 +293,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         caps = histories("event", al["run_id"] or "")
         for e in evs:
             e["review"] = capture_state(caps.get(e["event_id"], []))
-        return templates.TemplateResponse(request, "alert.html", {"al": al, "events": evs,
+        return templates.TemplateResponse(request, "alert.html", {"al": al, "events": evs, "reaction": reaction(al),
                                                                   **review_ctx(request, "alert", alert_id, **review)},
                                           status_code=status_code)
 
@@ -520,7 +531,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         lr, ms, w = d["low_ratio"], d["mean_score"], d["w1"]
 
         def only(points, rule):     # cada gráfica marca las alertas de su regla, de la fuente y de versión
-            keep = lambda r: r.startswith(("fuente-", "version-")) or (rule is not None and r == rule["rule_id"])
+            keep = lambda r: r.startswith(("fuente-", "version-", "inferencia-")) or (rule is not None and r == rule["rule_id"])
             return [{**p, "alerts": [r for r in p["alerts"] if keep(r)]} for p in points]
 
         lr["points"] = only(lr["points"], lr["rule"])

@@ -47,6 +47,11 @@ def load_config(path: str | Path) -> dict:
     mv = cfg.get("model_version")
     if mv and (mv["consecutive_mismatch"] < 1 or mv["recover_after_match"] < 1):
         raise ValueError("model_version: consecutive_mismatch y recover_after_match deben ser >= 1")
+    ih = cfg.get("inference_health")
+    if ih and (ih["consecutive_errors"] < 1 or ih["recover_after_ok"] < 1
+               or ih.get("reload_after", 1) < 1 or ih.get("reload_every", 1) < 1 or ih.get("max_reloads", 0) < 0):
+        raise ValueError("inference_health: consecutive_errors, recover_after_ok, reload_after y reload_every deben "
+                         "ser >= 1 y max_reloads >= 0")
     for name, alt in (cfg.get("model_alternatives") or {}).items():
         if not {"weights", "sha256"} <= set(alt):
             raise ValueError(f"model_alternatives.{name}: faltan weights o sha256")

@@ -1,0 +1,2 @@
+{"run_id": "20261109T025839Z-s3a-corrupcion", "at": "2026-11-09T03:01:17.224Z", "type": "recarga_modelo", "seq": 78, "event_id": "evt-20261109T025839Z-s3a-corrupcion-f000078", "n_errores_seguidos": 3, "sha256_verificado": true, "resultado": "cargado", "error": null, "duracion_ms": 337.6}
+{"run_id": "20261109T025839Z-s3a-corrupcion", "at": "2026-11-09T03:01:18.857Z", "type": "recarga_verificada", "recarga": 1, "seq_recarga": 78, "seq": 79, "event_id": "evt-20261109T025839Z-s3a-corrupcion-f000079", "status_siguiente": "ok", "efecto": "efectiva"}

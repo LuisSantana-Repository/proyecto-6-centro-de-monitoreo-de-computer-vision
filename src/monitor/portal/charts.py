@@ -108,6 +108,6 @@ def window_chart(title: str, points: list[dict], threshold: float | None, op: st
               'hueco en la línea: ventana no evaluada (su estado está rotulado) · '
               + ('▲ alerta abierta en esa ventana' + (f' ({escape("; ".join(alerts))})' if alerts else " (ninguna)")
                  if has_rule else "sin regla de alerta propia: el umbral es de referencia"
-                 + (f' · ▲ alerta de la fuente o de versión ({escape("; ".join(alerts))})' if alerts else ""))
+                 + (f' · ▲ alerta de la fuente, de versión o de inferencia ({escape("; ".join(alerts))})' if alerts else ""))
               + '.</p>')
     return head + "".join(out) + legend + "</figure>"

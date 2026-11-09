@@ -8,6 +8,7 @@ forma de verificarlo.
 |---|---|---|---|---|
 | **S1** | Escenario | Interrupción y recuperación de la fuente | 10 | completo: S1-R, S1-V y S1-W |
 | **S2** | Escenario | Cambio de versión del modelo no declarado, reacción y reversión | 10 | completo |
+| **S3** | Escenario | Error de inferencia: diagnóstico de etapa, recarga automática del modelo y su efecto verificado | 10 | completo: S3-a y S3-b |
 | **M1** | Métrica | Desplazamiento de la distribución de puntuaciones frente a la referencia (Wasserstein-1) | 8 | completo |
 | **M2** | Métrica | Latencia de punta a punta (frame → evento), p50/p95 por ejecución y por ventana | 5 | completo |
 | **M3** | Métrica | Tiempo de recuperación de la fuente y disponibilidad por ventana | 5 | completo (con S1-R, S1-V y S1-W) |
@@ -65,6 +66,32 @@ se revierte. Detalle, reproducción y límites: [`docs/escenario-s2.md`](escenar
   [`20`](../evidencias/portal/20-run-s2.png)–[`22`](../evidencias/portal/22-graficas-s2.png),
   [`tests/test_model_version.py`](../tests/test_model_version.py) y el contrafactual
   `monitor.evaluate --sin-reaccion-version`.
+
+## S3 · Error de inferencia (escenario, nivel 10)
+
+Falla la etapa del modelo mientras la fuente sigue entregando frames. Detalle, reproducción y límites:
+[`docs/escenario-s3.md`](escenario-s3.md).
+
+- **Por qué no es C1, C2, S1 ni S2.** Los frames llegan (no es S1) y el modelo es el configurado (no es
+  S2), pero no produce resultado: `inference_error`. Agrega su propia regla (`inferencia-fallida-v1`),
+  un diagnóstico de etapa en la alerta y una **reacción activa**: recargar el modelo desde los pesos
+  verificados y registrar si funcionó (`inferencia.jsonl`).
+- **Dos variantes con condiciones de aceptación distintas**, sobre la grabación de C1:
+  - **S3-a, estado del modelo corrupto** (`20261109T025839Z-s3a-corrupcion`). Errores en las muestras 76–78
+    (`RuntimeError` real de torch). Hay una alerta y una recarga en la muestra 78, que resulta **efectiva**:
+    la muestra 79 queda `ok`. Se resuelve con `recovered_by: recarga_del_modelo` y `duration_s` 6.0. Las 4
+    ventanas quedan `normal`.
+  - **S3-b, fallo persistente** (`20261109T030642Z-s3b-persistente`). Errores en las muestras 151–180. Hay
+    3 recargas, todas **sin efecto**, y luego se respeta el tope. La ventana 3 queda `insuficiente`. Se
+    resuelve al cesar el fallo, con `recovered_by: fallo_ceso_sin_efecto_de_las_recargas` y `duration_s`
+    60.0.
+  - `monitor.evaluate` coincide en las dos.
+- **Verificación posterior.** Fuera de las muestras con fallo, las detecciones son idénticas a las de C1
+  en las mismas muestras: S3-a 75/75 antes y 162/162 después de la recarga; S3-b 150/150 y 60/60.
+- **Evidencia:** registros de las dos ejecuciones (con `inferencia.jsonl`), capturas
+  [`39`](../evidencias/portal/39-alerta-inferencia-s3a.png)–[`42`](../evidencias/portal/42-graficas-s3b.png),
+  [`tests/test_inference_health.py`](../tests/test_inference_health.py) (8 pruebas, una de punta a punta con
+  `monitor.run` real).
 
 ## M1 · Desplazamiento de la distribución frente a la referencia (métrica, nivel 8)
 
@@ -203,6 +230,10 @@ portal) y `/api/panel`.
   verificación. S1 y S2 comparten el patrón de regla por evento, pero vigilan cosas distintas
   (disponibilidad de la fuente frente a identidad del modelo), con condiciones de aceptación
   distintas.
+- S3 comparte con S1 y S2 el patrón de regla por evento, pero vigila otra etapa (la inferencia, con la
+  fuente sana y el modelo correcto) y es el único escenario con reacción activa del monitor (recargar el
+  modelo) cuyo efecto se verifica. S3-a y S3-b son un mismo escenario con dos condiciones de aceptación
+  (la reacción arregla el fallo o no lo arregla); se reclaman como un solo extra.
 - F2 no repite F1 ni las vistas base: agrega acciones humanas con estado, persistencia y reglas de
   transición. Las capturas y alertas que revisa son las mismas de C1, C2, S1 y S2, que no se vuelven
   a contar.

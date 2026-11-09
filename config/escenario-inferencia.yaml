@@ -1,0 +1,19 @@
+# Escenario S3 · Error de inferencia: falla la etapa del modelo mientras la fuente sigue entregando frames.
+# Hereda TODO de monitor.yaml (modelo, política de confianza, ventanas, reglas, captura con on_error: true)
+# y solo agrega la regla de salud de la inferencia y su reacción. monitor.yaml (cfg-0b5e664b118c) no cambia.
+base: monitor.yaml
+
+inference_health:
+  rule_id: inferencia-fallida-v1
+  consecutive_errors: 3         # 3 muestras seguidas con inference_error abren la alerta (~6 s a 1 frame / 2 s)
+  recover_after_ok: 3           # 3 inferencias válidas seguidas la resuelven
+  severity: critical
+  # Reacción automática: recargar el modelo desde los pesos, verificando antes su SHA-256.
+  reload_after: 3               # primera recarga al tercer error seguido (junto con la alerta)
+  reload_every: 5               # si sigue fallando, otra recarga cada 5 errores (no en cada muestra)
+  max_reloads: 3                # como máximo 3 por episodio: si no basta, el fallo no es del estado del modelo
+  suggested_action: >-
+    La fuente entrega frames pero el modelo no produce resultados. Revisar el diagnóstico de la alerta (tipo de
+    error) y la reacción en inferencia.jsonl: si una recarga fue efectiva, el estado del modelo en memoria se había
+    corrompido; si las recargas no lo arreglan, revisar el dispositivo, las dependencias y la memoria del equipo.
+    Mientras dure, las ventanas afectadas quedan "insuficientes" y no se interpretan como normales ni anómalas.

@@ -85,6 +85,7 @@ configuración, `cfg-0b5e664b118c` en las evidencias) y `model_ref` (`yolo11n@sh
 | Métricas G1–G7 (+ adicionales M1–M3) | `uv run python -m monitor.metrics datos/runs/<run_id> --out-dir evidencias/metricas` |
 | Desplazamiento de la distribución (M1) | `uv run python -m monitor.drift datos/runs/<run_id>` (referencia: `--build <ref1> <ref2>`) |
 | Escenario S1: corte de la fuente | `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --inject-outage 180:90 ...` |
+| Escenario S3: error de inferencia | `uv run python -m monitor.run --config config/escenario-inferencia.yaml --inject-inference-error corrupcion:150 ...` (o `persistente:300:60`) |
 | Escenario S2: cambio de versión del modelo | `uv run python -m monitor.run --config config/escenario-version.yaml --swap-model yolo11s:150:210 ...` (pesos: `monitor.download_model --config config/escenario-version.yaml`) |
 | Importar runs a SQLite (idempotente) | `uv run python -m monitor.ingest [datos/runs/<run_id> ...]` |
 | Portal de eventos y alertas | `uv run python -m monitor.portal` → http://127.0.0.1:8000 (abre en el panel de operación, `/panel`; vista en vivo: `/vivo`) |
@@ -191,6 +192,7 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 |---|---|---|
 | S1 | Escenario: interrupción y recuperación de la fuente ([`docs/escenario-s1.md`](docs/escenario-s1.md)) | 10 |
 | S2 | Escenario: cambio de versión del modelo no declarado ([`docs/escenario-s2.md`](docs/escenario-s2.md)) | 10 |
+| S3 | Escenario: error de inferencia, con recarga automática del modelo ([`docs/escenario-s3.md`](docs/escenario-s3.md)) | 10 |
 | M1 | Métrica: desplazamiento de la distribución de puntuaciones frente a la referencia (W1) | 8 |
 | M2 | Métrica: latencia de punta a punta (frame → evento) | 5 |
 | M3 | Métrica: tiempo de recuperación de la fuente y disponibilidad | 5 |

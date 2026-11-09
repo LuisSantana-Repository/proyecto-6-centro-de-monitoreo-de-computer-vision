@@ -14,12 +14,12 @@ import copy
 import json
 from pathlib import Path
 
-from monitor.alerts import ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
+from monitor.alerts import InferenceHealthMonitor, ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
 from monitor.events import InferenceEvent
 
 
 def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[list[dict], list[dict]]:
-    """Ventanas y alertas (reglas de confianza por ventana + reglas de la fuente y de versión, si existen).
+    """Ventanas y alertas (reglas de confianza por ventana + reglas de la fuente, de versión y de inferencia).
 
     `without_version_reaction` (contrafactual del escenario S2): recalcula como si las ventanas con eventos
     de otra versión del modelo se evaluaran contra la referencia (`model_version.exclude_windows: false`)."""
@@ -30,12 +30,14 @@ def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[li
         cfg["model_version"]["exclude_windows"] = False
     args = (cfg, manifest["config_ref"], manifest["run_id"])
     ev, health, version = WindowEvaluator(*args), SourceHealthMonitor(*args), ModelVersionMonitor(*args)
+    inference = InferenceHealthMonitor(*args)       # S3: la apertura depende solo de los eventos
     windows, alerts = [], []
     results = []
     for line in open(run_dir / "events.jsonl", encoding="utf-8"):
         e = InferenceEvent.model_validate_json(line)
         alerts += health.add(e)[0]        # mismo orden que run.py: fuente, versión, luego ventana
         alerts += version.add(e)[0]
+        alerts += inference.add(e)[0]
         results.append(ev.add(e))
     results.append(ev.flush())
     window_alerts = []

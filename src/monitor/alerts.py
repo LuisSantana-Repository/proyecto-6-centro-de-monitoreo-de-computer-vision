@@ -360,6 +360,119 @@ class ModelVersionMonitor:
         }
 
 
+class InferenceHealthMonitor:
+    """Regla de salud de la inferencia (escenario S3), evaluada evento por evento, con reacción.
+
+    `consecutive_errors` eventos seguidos con status inference_error abren UNA alerta. El diagnóstico va en la
+    alerta: inference_error implica que la fuente sí entregó frame (sin frame el evento es invalid_input, que
+    es S1), así que el fallo está en la etapa de inferencia; se agregan los tipos de error y las capturas.
+    Los eventos invalid_input no cuentan ni cortan la racha: no hubo inferencia que juzgar.
+
+    Reacción: con `reload_after` errores seguidos se pide recargar el modelo desde los pesos verificados y,
+    si sigue fallando, cada `reload_every` errores más, hasta `max_reloads` por episodio. El siguiente evento
+    con inferencia dice si la recarga fue efectiva. `recover_after_ok` eventos válidos seguidos resuelven la
+    alerta con la duración, los errores, las recargas y qué la resolvió.
+
+    add(ev) -> (alertas nuevas, actualizaciones, registros para inferencia.jsonl, recargar: bool)
+    """
+
+    def __init__(self, cfg: dict, config_ref: str, run_id: str):
+        self.rule = cfg.get("inference_health")
+        self.config_ref = config_ref
+        self.run_id = run_id
+        self.bad: list[InferenceEvent] = []
+        self.good: list[InferenceEvent] = []
+        self.open: dict | None = None
+        self.reloads: list[dict] = []          # recargas de la racha actual de errores
+        self.pending: dict | None = None       # recarga cuyo efecto aún no se observa
+
+    def note_reload(self, rec: dict) -> None:
+        """run.py informa la recarga que ejecutó (resultado de cargar y verificar los pesos)."""
+        self.reloads.append(rec)
+        self.pending = rec
+
+    def _effect(self, ev: InferenceEvent) -> list[dict]:
+        if self.pending is None:
+            return []
+        p, self.pending = self.pending, None
+        p["efecto"] = "efectiva" if ev.status in VALID else "sin_efecto"
+        return [{"run_id": self.run_id, "at": ev.captured_at, "type": "recarga_verificada", "recarga": len(self.reloads),
+                 "seq_recarga": p["seq"], "seq": ev.seq, "event_id": ev.event_id, "status_siguiente": ev.status,
+                 "efecto": p["efecto"]}]
+
+    def add(self, ev: InferenceEvent) -> tuple[list[dict], list[dict], list[dict], bool]:
+        if not self.rule or ev.status == "invalid_input":
+            return [], [], [], False
+        r = self.rule
+        logs = self._effect(ev)
+        if ev.status == "inference_error":
+            self.good = []
+            self.bad.append(ev)
+            n, new = len(self.bad), []
+            if self.open is None and n >= r["consecutive_errors"]:
+                alert = self._make_alert(self.bad)
+                self.open = {"alert_id": alert["alert_id"], "first": self.bad[0], "n_errors": n, "last_bad": ev}
+                new = [alert]
+            elif self.open is not None:
+                self.open["n_errors"] += 1
+                self.open["last_bad"] = ev
+            ra, every = r.get("reload_after"), r.get("reload_every") or 1
+            reload = bool(ra) and n >= ra and (n - ra) % every == 0 and len(self.reloads) < r.get("max_reloads", 3)
+            return new, [], logs, reload
+        if self.open is None:
+            self.bad, self.reloads = [], []        # la racha exige errores seguidos
+            return [], [], logs, False
+        self.good.append(ev)
+        if len(self.good) < r["recover_after_ok"]:
+            return [], [], logs, False
+        ep, first_ok = self.open, self.good[0]
+        last = self.reloads[-1] if self.reloads else None
+        effective = bool(last and last.get("efecto") == "efectiva")
+        upd = {"alert_id": ep["alert_id"], "status": "resolved", "resolved_at": ev.captured_at,
+               "resolved_by_window": ev.event_id, "window_end": ep["last_bad"].captured_at,
+               "n_errors": ep["n_errors"], "duration_s": round(_secs(ep["first"].captured_at, first_ok.captured_at), 1),
+               "first_ok_event_id": first_ok.event_id, "n_reloads": len(self.reloads),
+               "reload_effective": effective,
+               "recovered_by": "recarga_del_modelo" if effective else
+                               ("fallo_ceso_sin_efecto_de_las_recargas" if self.reloads else "fallo_ceso")}
+        self.open, self.bad, self.good, self.reloads = None, [], [], []
+        return [], [upd], logs, False
+
+    def _make_alert(self, bad: list[InferenceEvent]) -> dict:
+        r = self.rule
+        types: dict[str, int] = {}
+        for e in bad:
+            t = (e.error or "").split(":", 1)[0] or "desconocido"
+            types[t] = types.get(t, 0) + 1
+        return {
+            "alert_id": f"alert-{self.run_id}-{r['rule_id']}-f{bad[0].seq:06d}",
+            "rule_id": r["rule_id"],
+            "run_id": self.run_id,
+            "timestamp": utc_now_iso(),
+            "severity": r["severity"],
+            "status": "open",
+            "reason": (f"La inferencia falló en {len(bad)} muestras seguidas desde {bad[0].captured_at} "
+                       f"(umbral {r['consecutive_errors']}). La fuente sí entregó frame en todas (sin frame serían "
+                       f"invalid_input): el fallo está en la etapa de inferencia. Error: {bad[-1].error}"),
+            "suggested_action": r["suggested_action"],
+            "config_ref": self.config_ref,
+            "window_start": bad[0].captured_at,
+            "window_end": bad[-1].captured_at,
+            "n_windows": None,
+            "suppressed_repeats": 0,
+            "metric": {"signal": "inferencias_fallidas_consecutivas", "op": ">=",
+                       "threshold": r["consecutive_errors"], "value": len(bad),
+                       "recover_after_ok": r["recover_after_ok"],
+                       "diagnostico": {"etapa": "inferencia", "fuente_entrego_frame": True,
+                                       "tipos_de_error": types, "errores": [e.error for e in bad],
+                                       "capturas_del_fallo": sum(1 for e in bad if e.image_ref)},
+                       "reaccion": {"reload_after": r.get("reload_after"), "reload_every": r.get("reload_every"),
+                                    "max_reloads": r.get("max_reloads", 3)}},
+            "event_ids": [e.event_id for e in bad],
+            "image_refs": [e.image_ref for e in bad if e.image_ref],
+        }
+
+
 def _secs(a: str, b: str) -> float:
     from datetime import datetime
 

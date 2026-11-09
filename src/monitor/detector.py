@@ -31,6 +31,58 @@ class SwapPlan:
         return {"name": self.name, "start_s": self.start_s, "duration_s": self.duration_s}
 
 
+@dataclass
+class InferenceFault:
+    """Escenario S3: fallo de la etapa de inferencia mientras la fuente sigue entregando frames.
+
+    - `corrupcion:INICIO`: en INICIO (segundos de stream) se corrompe el estado del modelo en memoria (los
+      pesos de la primera convolución quedan con una forma inválida). Cada inferencia falla con el error real
+      de torch hasta que el modelo se recarga desde los pesos verificados: la reacción lo arregla.
+    - `persistente:INICIO:DURACION`: durante ese intervalo la inferencia falla siempre (simula un dispositivo
+      o una dependencia que no responde, externa al modelo): recargar el modelo no lo arregla.
+
+    Mismo reloj que S1 y S2: (seq - 1) × sample_interval_s, determinista en vivo y en replay."""
+    mode: str
+    start_s: float
+    duration_s: float | None = None
+    fired: bool = False
+
+    MODES = ("corrupcion", "persistente")
+
+    @classmethod
+    def parse(cls, spec: str) -> "InferenceFault":
+        parts = spec.split(":")
+        mode = parts[0]
+        if mode == "corrupcion" and len(parts) == 2:
+            return cls(mode, float(parts[1]))
+        if mode == "persistente" and len(parts) == 3:
+            return cls(mode, float(parts[1]), float(parts[2]))
+        raise ValueError("--inject-inference-error: usa corrupcion:INICIO o persistente:INICIO:DURACION")
+
+    def apply(self, detector: "Detector", t: float) -> None:
+        """Se llama justo antes de cada inferencia, con el tiempo de stream de la muestra."""
+        if self.mode == "corrupcion" and not self.fired and t >= self.start_s:
+            self.fired = True               # una sola vez, aunque la corrupción misma fallara
+            corrupt_weights(detector)
+        elif self.mode == "persistente" and self.start_s <= t < self.start_s + self.duration_s:
+            raise RuntimeError("dispositivo de inferencia no disponible (fallo inyectado, escenario S3)")
+
+    def as_dict(self) -> dict:
+        return {"mode": self.mode, "start_s": self.start_s, "duration_s": self.duration_s}
+
+
+def corrupt_weights(detector: "Detector") -> None:
+    """Deja la primera convolución con 1 canal de entrada en lugar de 3: el siguiente forward falla con el
+    RuntimeError de torch, y sigue fallando hasta recargar los pesos desde el archivo."""
+    import torch
+
+    # el predictor envuelve el modelo en un AutoBackend que no lo registra como submódulo: se toma el interno
+    backend = detector.model.predictor.model if detector.model.predictor else None
+    model = getattr(backend, "model", None) or detector.model.model
+    conv = next(m for m in model.modules() if isinstance(m, torch.nn.Conv2d))
+    conv.weight.data = conv.weight.data[:, :1].clone()
+
+
 class Detector:
     def __init__(self, cfg: dict, model_sha256: str, weights: str | None = None, name: str | None = None):
         """Por defecto carga el modelo de `cfg.model`. `weights`/`name` cargan otro artefacto con los mismos

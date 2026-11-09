@@ -43,12 +43,34 @@
     {% if al.resolution and al.resolution.downtime_s is defined %}
     <dt>Resolución</dt><dd>caída de {{ al.resolution.downtime_s }} s · {{ al.resolution.n_invalid }} muestras sin frame ·
       primer frame recibido <a class="mono" href="/eventos/{{ al.resolution.first_ok_event_id }}">{{ al.resolution.first_ok_event_id }}</a></dd>
+    {% elif al.resolution and al.resolution.n_errors is defined %}
+    <dt>Resolución</dt><dd>inferencia fallida durante {{ al.resolution.duration_s }} s · {{ al.resolution.n_errors }} errores ·
+      {{ al.resolution.n_reloads }} recarga(s) del modelo · resuelta por:
+      <b>{{ {'recarga_del_modelo': 'la recarga del modelo', 'fallo_ceso_sin_efecto_de_las_recargas': 'el fin del fallo (las recargas no lo arreglaron)',
+             'fallo_ceso': 'el fin del fallo'}.get(al.resolution.recovered_by, al.resolution.recovered_by) }}</b> ·
+      primera inferencia válida <a class="mono" href="/eventos/{{ al.resolution.first_ok_event_id }}">{{ al.resolution.first_ok_event_id }}</a></dd>
     {% elif al.resolution and al.resolution.duration_s is defined %}
     <dt>Resolución</dt><dd>otra versión durante {{ al.resolution.duration_s }} s · {{ al.resolution.n_mismatch }} eventos con
       <span class="mono">{{ (al.resolution.reported_model_refs or [])|join(', ') }}</span> ·
       primer evento con la versión esperada <a class="mono" href="/eventos/{{ al.resolution.first_ok_event_id }}">{{ al.resolution.first_ok_event_id }}</a></dd>
     {% endif %}
-  </dl></div>
+    {% if al.metric.diagnostico %}{% set dg = al.metric.diagnostico %}
+    <dt>Diagnóstico</dt><dd>etapa: <b>{{ dg.etapa }}</b> (la fuente entregó frame) ·
+      {% for t, n in dg.tipos_de_error.items() %}<span class="mono">{{ t }}</span> × {{ n }}{{ ', ' if not loop.last }}{% endfor %}
+      · {{ dg.capturas_del_fallo }} captura(s) del fallo</dd>
+    {% endif %}
+  </dl>
+  {% if reaction %}
+  <h3>Reacción: recargas del modelo <span class="muted small">(inferencia.jsonl)</span></h3>
+  <table class="hist"><thead><tr><th>Muestra</th><th>Registro</th><th>Detalle</th></tr></thead><tbody>
+  {% for r in reaction %}<tr><td class="mono"><a href="/eventos/{{ r.event_id }}">#{{ r.seq }}</a></td>
+    {% if r.type == 'recarga_modelo' %}<td>recarga del modelo</td><td>{{ r.resultado }} · SHA-256 {{ 'verificado' if r.sha256_verificado else 'NO coincide' }} ·
+      {{ r.duracion_ms }} ms · tras {{ r.n_errores_seguidos }} errores seguidos{% if r.error %} · {{ r.error }}{% endif %}</td>
+    {% else %}<td>efecto de la recarga {{ r.recarga }}</td><td><b>{{ 'efectiva' if r.efecto == 'efectiva' else 'sin efecto' }}</b>: la muestra siguiente quedó
+      <span class="badge s-{{ r.status_siguiente }}">{{ r.status_siguiente }}</span></td>{% endif %}</tr>{% endfor %}
+  </tbody></table>
+  {% endif %}
+  </div>
   <div class="card" id="revision"><b>Revisión humana</b>
     <span class="badge rv-{{ rstate.state }}">{{ rstate.state }}</span>
     <dl class="tight">

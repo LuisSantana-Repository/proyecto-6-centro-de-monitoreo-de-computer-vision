@@ -18,6 +18,7 @@ sección [Extras](#extras) abajo).
 | `2e97a73` | Extras S2 (regla de versión del modelo, estado `otra_version`, `--swap-model`), F2 (revisión humana) y F3 (exportación), con sus ejecuciones y evidencias. |
 | `d00aeca` | Extra F4 (vista en vivo: estado publicado por `monitor.run`, `/vivo` con sus cuatro estados), con la ejecución `20261109T005919Z-f4-vivo` y las capturas 31–34. |
 | `1572001` | Extra F5 (panel de operación `/panel`, reglas de atención y `monitor.dashboard --verificar`), con las capturas 35–38 y las verificaciones en `evidencias/panel/`. |
+| `ca41a4e` | Extra S3 (regla `inferencia-fallida-v1`, recarga automática del modelo y `inferencia.jsonl`), con las ejecuciones S3-a y S3-b y las capturas 39–42. |
 
 Respecto de `0862536`, `50b3b0a` agrega:
 - la muestra de recursos del proceso por evento (`resources`, para G3);

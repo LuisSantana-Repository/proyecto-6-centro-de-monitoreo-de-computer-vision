@@ -2,7 +2,7 @@
 
 **Estudiante:** Luis Santana · **Entrega:** individual · **Configuración:** `cfg-0b5e664b118c`
 ([`config/monitor.yaml`](../config/monitor.yaml)) · **Modelo:** `yolo11n@sha256:0ebbc80d4a76`
-([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, M1, M2, M3, F1, F2 y F3 ([`docs/extras.md`](../docs/extras.md);
+([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, M1, M2, M3, F1, F2, F3 y F4 ([`docs/extras.md`](../docs/extras.md);
 sección [Extras](#extras) abajo).
 
 ## Revisiones Git
@@ -15,7 +15,7 @@ sección [Extras](#extras) abajo).
 | `12d76dd` | Extras M1–M3 (`monitor.drift`, latencia de punta a punta, recuperación de la fuente). |
 | `061ba82` | Extra F1: gráficas por ventana en el portal. |
 | `a18c724` | Ejecuciones en vivo S1-V y S1-W, sus evidencias y el filtro de códigos ANSI en el registro de la fuente. |
-| `2e97a73` | Extras S2 (regla de versión del modelo, estado `otra_version`, `--swap-model`) F2 (revisión humana) y F3 (exportación), con sus ejecuciones y evidencias. |
+| `2e97a73` | Extras S2 (regla de versión del modelo, estado `otra_version`, `--swap-model`), F2 (revisión humana) y F3 (exportación), con sus ejecuciones y evidencias. |
 
 Respecto de `0862536`, `50b3b0a` agrega:
 - la muestra de recursos del proceso por evento (`resources`, para G3);
@@ -49,6 +49,7 @@ de los eventos resuelven tal cual. Cada carpeta contiene:
 | `20261108T222800Z-s1-vivo-interrupcion` | extra **S1-V** (07:28 JST, lluvia) | cámara en vivo, corte inyectado a los 180 s durante 90 s (240 frames) | en vivo |
 | `20261108T224433Z-s1-wifi` | extra **S1-W** (07:44 JST, lluvia) | cámara en vivo, WiFi apagado de verdad (240 frames) | en vivo |
 | `20261108T232126Z-s2-cambio-version` | extra **S2** | grabación de C1; `yolo11s` en las muestras 76–180 (240 frames) | 1 frame / 2 s |
+| `20261109T005919Z-f4-vivo` | extra **F4** (10:00 JST, lluvia) | cámara en vivo con la vista en vivo publicada (90 frames) | en vivo |
 
 Las grabaciones completas (≈ 850 MB) no se versionan. Una muestra de 60 frames, la primera
 ventana de C1 y de C2, está en [`entradas/`](entradas/).
@@ -91,7 +92,7 @@ Desde un clon limpio:
 ```bash
 uv sync
 uv run python -m monitor.download_model         # pesos verificados por SHA-256
-uv run pytest -q                                # 92 pruebas
+uv run pytest -q                                # 99 pruebas
 
 # 1) Recalcular desde los registros primarios versionados (sin modelo)
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
@@ -108,7 +109,7 @@ uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --l
 ```
 
 Comprobado en un clon limpio de `97469f3` (antes de los extras), descargado desde GitHub el 2026-11-08:
-- 29 pruebas pasan (hoy son 92).
+- 29 pruebas pasan (hoy son 99).
 - `evaluate` coincide en las cuatro ejecuciones.
 - Las métricas de C2 son idénticas a [`metricas/`](metricas/).
 - La muestra de C2 reproduce la ventana 1 y su alerta.
@@ -150,6 +151,10 @@ Las capturas están en [`portal/`](portal/); se tomaron con Edge headless sobre 
 | 28 | `/exportar?preview=1&run_id=…s2…&model_ref=yolo11s…&class_name=person&min_score=0.5&nivel=deteccion` | F3: vista previa (146 detecciones, SHA-256, primeras filas) |
 | 29 | `/exportar?preview=1&run_id=…c1-normal&status=inference_error` | F3: exportación vacía y registro de descargas |
 | 30 | `/exportar?preview=1&…&since=ayer` | F3: error 422 con los filtros conservados |
+| 31 | `/vivo` | F4: cámara en vivo en curso (frame con cajas, ventana 33/60 con valores parciales, fuente conectada) |
+| 32 | `/vivo?run_id=…f4-vivo` | F4: la misma ejecución terminada, con su alerta de baja confianza |
+| 33 | `/vivo` | F4: replay con corte inyectado: `fuente_caida`, antigüedad del último frame, alerta de la fuente abierta |
+| 34 | `/vivo?run_id=…f4-demo-fallo` | F4: el mismo proceso detenido a la mitad: `estancada` |
 
 Respuestas JSON de la API en el mismo momento: [`portal/api/`](portal/api/).
 
@@ -163,6 +168,7 @@ Detalle, definiciones y control de doble conteo: [`docs/extras.md`](../docs/extr
 | **S2** cambio de versión del modelo | 10 | ejecución `20261108T232126Z-s2-cambio-version`; [`docs/escenario-s2.md`](../docs/escenario-s2.md#resultados); capturas [`20`](portal/20-run-s2.png)–[`22`](portal/22-graficas-s2.png); [`portal/api/alerta-version-s2.json`](portal/api/alerta-version-s2.json); [`tests/test_model_version.py`](../tests/test_model_version.py) |
 | **F2** revisión humana de alertas y capturas | 15 | `datos/runs/*/revisiones.jsonl` (9 acciones); capturas [`23`](portal/23-revision-cola-s1-wifi.png)–[`27`](portal/27-alertas-por-revision.png); [`portal/api/revisiones.json`](portal/api/revisiones.json); [`tests/test_review.py`](../tests/test_review.py) |
 | **F3** exportación de eventos | 10 | [`exportaciones/`](exportaciones/) (4 archivos + registro, verificados con `monitor.export --verificar`); capturas [`28`](portal/28-exportar-vista-previa.png)–[`30`](portal/30-exportar-error.png); [`tests/test_export.py`](../tests/test_export.py) |
+| **F4** vista en vivo | 15 | ejecución `20261109T005919Z-f4-vivo`; capturas [`31`](portal/31-vivo-en-curso.png)–[`34`](portal/34-vivo-estancada.png); [`tests/test_live.py`](../tests/test_live.py) |
 | **M1** desplazamiento de la distribución (W1) | 8 | [`config/referencia-distribucion.json`](../config/referencia-distribucion.json); `metricas_adicionales` en [`metricas/`](metricas/); [`tests/test_drift.py`](../tests/test_drift.py) |
 | **M2** latencia de punta a punta | 5 | `metricas_adicionales.M2_latencia_e2e` y `ventanas[].M2_e2e_p95_ms` en [`metricas/`](metricas/) |
 | **M3** recuperación de la fuente y disponibilidad | 5 | `metricas_adicionales.M3_recuperacion_fuente` de las tres ejecuciones de S1 |

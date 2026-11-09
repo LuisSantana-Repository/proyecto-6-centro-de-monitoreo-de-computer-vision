@@ -26,6 +26,7 @@ from monitor.alerts import ModelVersionMonitor, SourceHealthMonitor, WindowEvalu
 from monitor.config import config_ref, load_config, sha256_file
 from monitor.detector import Detector, SwapPlan
 from monitor.events import Detection, EventWriter, InferenceEvent
+from monitor.live import LiveWriter
 from monitor.policy import LOW, zone, zone_counts
 from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource, utc_now_iso
 from monitor.store import Store
@@ -99,6 +100,8 @@ def main() -> None:
     ap.add_argument("--label", default="run", help="etiqueta del run (p. ej. referencia, c1, c2)")
     ap.add_argument("--inject-outage", default=None, metavar="INICIO:DURACION",
                     help="escenario S1: corta la fuente de INICIO a INICIO+DURACION segundos de stream")
+    ap.add_argument("--sin-vivo", action="store_true",
+                    help="no publicar el estado en vivo (datos/vivo/<run_id>/) para el portal /vivo")
     ap.add_argument("--swap-model", default=None, metavar="NOMBRE:INICIO:DURACION",
                     help="escenario S2: usa el modelo NOMBRE (model_alternatives) de INICIO a INICIO+DURACION "
                          "segundos de stream, sin cambiar la configuración, y luego vuelve al configurado")
@@ -182,6 +185,13 @@ def main() -> None:
     manifest["environment"]["ram_total_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
     counts = {"ok": 0, "no_detections": 0, "inference_error": 0, "invalid_input": 0, "images": 0,
               "windows": 0, "alerts": 0}
+    # F4 · vista en vivo: estado actual para el portal (/vivo); no es registro primario
+    live_dir = Path(cfg["output"]["runs_dir"]).parent / "vivo"
+    live = None if args.sin_vivo else LiveWriter(live_dir, manifest, args.frames)
+    live_ctx = {"last_window": None, "open_alerts": {},
+                "source": {"estado": "iniciando", "ultimo": None, "at": None, "detalle": {}}}
+    if live:
+        manifest["live_view"] = {"dir": str(live.dir)}
 
     source.start()
     manifest["source_meta"] = source.stats.stream_meta
@@ -194,18 +204,25 @@ def main() -> None:
             rec = {"run_id": run_id, **h}
             health_log.write(rec)
             store.insert_source_event(rec)
+            ok_types = ("conectado", "reconectado", "lectura_recuperada")
+            live_ctx["source"] = {"estado": "conectada" if h["type"] in ok_types else "con_fallas",
+                                  "ultimo": h["type"], "at": h["at"],
+                                  "detalle": {k: v for k, v in h.items() if k not in ("at", "type")}}
             print(f"  ~~ fuente: {h['type']} " + " ".join(f"{k}={v}" for k, v in h.items() if k not in ("at", "type")))
 
     def handle_alerts(new_alerts, updates) -> None:
         for a in new_alerts:
             alert_log.write({"type": "alert", **a})
             store.insert_alert(a)
+            live_ctx["open_alerts"][a["alert_id"]] = {k: a[k] for k in ("alert_id", "rule_id", "severity",
+                                                                         "timestamp", "reason")}
             counts["alerts"] += 1
             print(f"  !! ALERTA {a['severity']} {a['rule_id']}: {a['reason']}")
         for u in updates:
             alert_log.write({"type": "update", **u})
             store.update_alert(u)
             if u.get("status") == "resolved":
+                live_ctx["open_alerts"].pop(u["alert_id"], None)
                 print(f"  -- alerta resuelta: {u['alert_id']}")
 
     def handle_window(result) -> None:
@@ -216,6 +233,8 @@ def main() -> None:
         win_log.write(rec)
         store.insert_window(rec)
         counts["windows"] += 1
+        live_ctx["last_window"] = {k: rec[k] for k in ("window_id", "idx", "state", "low_ratio", "mean_score",
+                                                        "n_valid", "n_eligible")}
         lr = f"{win.low_ratio:.3f}" if win.low_ratio is not None else "-"
         ms = f"{win.mean_score:.3f}" if win.mean_score is not None else "-"
         print(f"  == ventana {win.idx}: {win.state} (prop_baja={lr} media={ms} elegibles={win.n_eligible})")
@@ -286,6 +305,9 @@ def main() -> None:
             handle_alerts(*health.add(ev))
             handle_alerts(*version.add(ev))
             handle_window(evaluator.add(ev))
+            if live:
+                live.update(ev, fr.image, evaluator.buf, live_ctx["last_window"], live_ctx["open_alerts"],
+                            live_ctx["source"], counts)
     except KeyboardInterrupt:
         print("Interrumpido por el usuario.")
     finally:
@@ -298,6 +320,9 @@ def main() -> None:
         alert_log.close()
         manifest["finished_at"] = utc_now_iso()
         manifest["counts"] = counts
+        if live:
+            live.finish(counts, manifest["finished_at"])
+            manifest["live_view"]["write_errors"] = live.write_errors
         manifest["source_stats"] = source.stats.as_dict()
         (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
         store.upsert_run(manifest)

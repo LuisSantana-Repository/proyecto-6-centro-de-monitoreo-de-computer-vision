@@ -1,0 +1,41 @@
+{% set v = st.vivo %}
+<div id="vivo-panel" data-frame-seq="{{ st.frame.seq if st.frame else '' }}" data-status="{{ v.status }}">
+<div class="flash vivo-{{ v.status }}" role="status">
+  <b>{{ {'en_curso': 'En curso', 'fuente_caida': 'Fuente caída', 'estancada': 'Sin reportes del monitor', 'terminada': 'Terminada'}[v.status] }}</b>
+  · {{ v.motivo }}
+</div>
+<div class="card"><dl class="tight">
+  <dt>Ejecución</dt><dd class="mono"><a href="/runs/{{ st.run_id }}">{{ st.run_id }}</a> · {{ st.mode }}</dd>
+  <dt>Avance</dt><dd>{{ st.evento.seq if st.evento else 0 }}{% if st.frames_objetivo %} de {{ st.frames_objetivo }}{% endif %} muestras
+    · {{ st.contadores.ok or 0 }} ok · {{ st.contadores.invalid_input or 0 }} sin frame · {{ st.contadores.alerts or 0 }} alertas</dd>
+  {% if st.evento %}{% set e = st.evento %}
+  <dt>Último evento</dt><dd class="mono"><a href="/eventos/{{ e.event_id }}">#{{ e.seq }}</a> · {{ e.captured_at }}</dd>
+  <dt>Resultado</dt><dd><span class="badge s-{{ e.status }}">{{ e.status }}</span>
+    {% if e.get('zone_counts') %}<span class="badge z-accepted">{{ e.zone_counts.accepted }}</span> <span class="badge z-doubt">{{ e.zone_counts.doubt }}</span> <span class="badge z-low">{{ e.zone_counts.low }}</span>{% endif %}
+    · prop. baja {{ '%.3f'|format(e.low_ratio) if e.get('low_ratio') is not none else '—' }}
+    {% if e.get('inference_ms') %}· inferencia {{ e.inference_ms|round|int }} ms{% endif %}</dd>
+  <dt>Modelo</dt><dd class="mono">{{ e.model_ref }}{% if e.model_ref != st.model_ref_configurado %} <span class="badge sev-critical">distinto del configurado</span>{% endif %}</dd>
+  {% if e.error %}<dt>Error</dt><dd>{{ e.error }}</dd>{% endif %}
+  {% endif %}
+  {% if st.ventana_en_curso %}{% set w = st.ventana_en_curso %}
+  <dt>Ventana {{ w.idx }}</dt><dd><progress max="{{ w.de }}" value="{{ w.n }}"></progress> {{ w.n }}/{{ w.de }}
+    {% if w.get('n_eligible') %}· parcial: prop. baja {{ '%.3f'|format(w.low_ratio) }} · media {{ '%.3f'|format(w.mean_score) }} · {{ w.n_eligible }} elegibles{% endif %}
+    <br><span class="muted small">parcial: se evalúa al cerrar la ventana</span></dd>
+  {% endif %}
+  {% if st.ultima_ventana %}{% set lw = st.ultima_ventana %}
+  <dt>Última ventana</dt><dd>{{ lw.idx }}: <b>{{ lw.state }}</b>
+    {% if lw.get('low_ratio') is not none %}· prop. baja {{ '%.3f'|format(lw.low_ratio) }} · media {{ '%.3f'|format(lw.mean_score) }}{% endif %}</dd>
+  {% endif %}
+  {% if st.fuente %}
+  <dt>Fuente</dt><dd>{{ st.fuente.estado }}{% if st.fuente.ultimo %} · último: {{ st.fuente.ultimo }} <span class="mono small">{{ st.fuente.at }}</span>{% endif %}
+    {% if st.fuente.detalle %}<br><span class="muted small">{% for k, val in st.fuente.detalle.items() %}{{ k }}: {{ val }}{{ ' · ' if not loop.last }}{% endfor %}</span>{% endif %}</dd>
+  {% endif %}
+</dl></div>
+<div class="card"><b>Alertas abiertas ({{ (st.alertas_abiertas or [])|length }})</b>
+  {% if st.alertas_abiertas %}<ul>{% for a in st.alertas_abiertas %}
+    <li><a class="mono" href="/alertas/{{ a.alert_id }}">{{ a.rule_id }}</a> <span class="badge sev-{{ a.severity }}">{{ a.severity }}</span>
+        <span class="muted small">{{ a.timestamp }}</span></li>{% endfor %}</ul>
+  {% else %}<p class="muted">Ninguna.</p>{% endif %}
+</div>
+<p class="muted small">Actualizado {{ st.updated_at }} · JSON: <a href="/api/vivo/{{ st.run_id }}">/api/vivo/{{ st.run_id }}</a></p>
+</div>

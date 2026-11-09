@@ -24,6 +24,8 @@ from fastapi.templating import Jinja2Templates
 
 from monitor import drift
 from monitor import export as exporter
+from monitor import live as livemod
+from monitor.draw import draw_detections
 from monitor.portal.charts import window_chart
 from monitor.review import (CAPTURE_LABELS, VERDICTS, ReviewError, ReviewLog, alert_state, capture_state,
                             check_alert_action, check_capture_review)
@@ -32,7 +34,6 @@ from monitor.store import Store
 
 TEMPLATES = Path(__file__).parent / "templates"
 PAGE_SIZE = 50
-ZONE_BGR = {"accepted": (60, 170, 40), "doubt": (0, 150, 255), "low": (40, 40, 220)}
 STATUSES = ["ok", "no_detections", "inference_error", "invalid_input"]
 
 
@@ -41,6 +42,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
     Store(db_path).close()                                  # crea/migra el esquema (p. ej. la tabla reviews)
     reviews = ReviewLog(root / runs_dir, lambda: Store(db_path))
     exports_log = root / Path(runs_dir).parent / "exportaciones.jsonl"   # registro de descargas (F3)
+    live_dir = root / Path(runs_dir).parent / "vivo"                       # estado publicado por monitor.run (F4)
     db_uri = Path(db_path).resolve().as_uri() + "?mode=ro"  # solo lectura; la ruta puede tener espacios
     app = FastAPI(title="Proyecto 6: Centro de monitoreo de computer vision")
     templates = Jinja2Templates(directory=str(TEMPLATES))
@@ -300,6 +302,45 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
             "reasons": sorted({e["capture_reason"] for e in evs if e["capture_reason"]}),
             "f": {"run_id": run_id, "estado": estado, "reason": reason, "label": label}})
 
+    # -- vista en vivo (F4) ----------------------------------------------------
+    RUN_ID_RE = re.compile(r"^[\w\-]+$")          # ids de ejecución: sin puntos ni separadores de ruta
+
+    def live_or_404(run_id: str) -> dict:
+        st = livemod.read_live(live_dir, run_id) if RUN_ID_RE.match(run_id) else None
+        if st is None:
+            raise HTTPException(404, f"Sin vista en vivo para: {run_id}")
+        return st
+
+    @app.get("/vivo", response_class=HTMLResponse)
+    def live_page(request: Request, run_id: str = ""):
+        runs = livemod.list_live(live_dir)
+        if not runs:
+            return templates.TemplateResponse(request, "vivo.html", {"runs": []})
+        st = live_or_404(run_id) if run_id else runs[0]
+        return templates.TemplateResponse(request, "vivo.html", {"runs": runs, "st": st})
+
+    @app.get("/vivo/panel/{run_id}", response_class=HTMLResponse)
+    def live_panel(request: Request, run_id: str):
+        return templates.TemplateResponse(request, "_vivo_panel.html", {"st": live_or_404(run_id)},
+                                          headers={"Cache-Control": "no-store"})
+
+    @app.get("/vivo/frame/{run_id}")
+    def live_frame(run_id: str):
+        live_or_404(run_id)
+        f = live_dir / run_id / "frame.jpg"
+        if not f.is_file():
+            raise HTTPException(404, "Todavía no hay frame")
+        return Response(f.read_bytes(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/vivo")
+    def api_live_list():
+        return {"items": [{"run_id": s["run_id"], "label": s.get("label"), "updated_at": s.get("updated_at"),
+                           **s["vivo"]} for s in livemod.list_live(live_dir)]}
+
+    @app.get("/api/vivo/{run_id}")
+    def api_live(run_id: str):
+        return live_or_404(run_id)
+
     # -- exportación (F3) ------------------------------------------------------
     def export_params(request: Request) -> dict:
         return {k: v for k, v in request.query_params.items() if k != "preview"}
@@ -503,15 +544,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         if img is None:
             raise HTTPException(500, "No se pudo leer la imagen")
         if boxes:
-            for d in sorted(ev["detections"], key=lambda d: d["score"]):
-                if d["zone"] == "low" and not low:
-                    continue
-                x1, y1, x2, y2 = (int(v) for v in d["bbox_xyxy"])
-                color = ZONE_BGR[d["zone"]]
-                cv2.rectangle(img, (x1, y1), (x2, y2), color, 1 if d["zone"] == "low" else 2)
-                if d["zone"] != "low":
-                    cv2.putText(img, f"{d['class_name']} {d['score']:.2f}", (x1, max(10, y1 - 3)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1, cv2.LINE_AA)
+            draw_detections(img, ev["detections"], show_low=low)
         ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 88])
         return Response(buf.tobytes(), media_type="image/jpeg")
 

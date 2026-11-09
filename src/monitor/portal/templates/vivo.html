@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}En vivo{% endblock %}
+{% block content %}
+<h1>Vista en vivo</h1>
+{% if not runs %}
+<div class="empty">No hay ejecuciones con vista en vivo. Inicia una con
+  <span class="mono">uv run python -m monitor.run --frames N --label …</span> y esta página se actualizará sola.</div>
+<script>setTimeout(() => location.reload(), 5000);</script>
+{% else %}
+<div class="card">
+<form class="filters" method="get">
+  <label>Ejecución
+    <select name="run_id" onchange="this.form.submit()">
+    {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if r.run_id == st.run_id }}>{{ r.run_id }} · {{ r.vivo.status }}</option>{% endfor %}
+    </select></label>
+  <noscript><button>Ver</button></noscript>
+  <span class="muted small">Se actualiza cada 2 s.</span>
+</form>
+</div>
+<div class="grid">
+<div>
+  {% if st.frame and st.frame.seq %}
+  <img id="vivo-frame" class="frame" src="/vivo/frame/{{ st.run_id }}?v={{ st.frame.seq }}" alt="Último frame con detecciones">
+  <p class="muted">Frame #<span id="vivo-frame-seq">{{ st.frame.seq }}</span> · cajas:
+    <span class="badge z-accepted">aceptada ≥ {{ st.thresholds.upper }}</span>
+    <span class="badge z-doubt">duda [{{ st.thresholds.lower }}, {{ st.thresholds.upper }})</span> · baja confianza oculta</p>
+  {% else %}
+  <div class="empty">Todavía no se recibe ningún frame.</div>
+  {% endif %}
+</div>
+<div id="vivo-side">{% include "_vivo_panel.html" %}</div>
+</div>
+<script>
+(() => {
+  const runId = {{ st.run_id|tojson }};
+  let busy = false;
+  async function tick() {
+    if (busy) return; busy = true;
+    try {
+      const r = await fetch(`/vivo/panel/${encodeURIComponent(runId)}`, {cache: "no-store"});
+      if (r.ok) {
+        document.getElementById("vivo-side").innerHTML = await r.text();
+        const p = document.getElementById("vivo-panel"), img = document.getElementById("vivo-frame");
+        const seq = p && p.dataset.frameSeq;
+        if (img && seq && !img.src.endsWith(`v=${seq}`)) {
+          img.src = `/vivo/frame/${encodeURIComponent(runId)}?v=${seq}`;
+          document.getElementById("vivo-frame-seq").textContent = seq;
+        } else if (!img && seq) { location.reload(); }
+      }
+    } catch (e) { /* el portal o la red no respondieron: se reintenta en el siguiente ciclo */ }
+    busy = false;
+  }
+  setInterval(tick, 2000);
+})();
+</script>
+{% endif %}
+{% endblock %}

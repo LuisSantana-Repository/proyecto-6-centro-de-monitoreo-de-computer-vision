@@ -14,6 +14,7 @@ forma de verificarlo.
 | **F1** | Funcionalidad | Gráficas por ventana en el portal (proporción baja, media y W1, con umbrales, huecos y alertas) | 10 | completo |
 | **F2** | Funcionalidad | Revisión humana de alertas y capturas: estados coordinados con las reglas, persistencia trazable, cola de revisión | 15 | completo |
 | **F3** | Funcionalidad | Exportación de eventos y detecciones (CSV/JSONL) con filtros, procedencia y verificación | 10 | completo |
+| **F4** | Funcionalidad | Vista en vivo del stream con resultados, estado de la ejecución y de la fuente | 15 | completo |
 
 ---
 
@@ -151,6 +152,25 @@ estados vacíos o erróneos. Código: [`src/monitor/export.py`](../src/monitor/e
 | **Uso con datos reales** | Cuatro descargas desde el portal, guardadas en [`evidencias/exportaciones/`](../evidencias/exportaciones/) con su registro ([`registro-exportaciones.jsonl`](../evidencias/exportaciones/registro-exportaciones.jsonl)): **(1)** los 180 eventos de la alerta de cambio sostenido de C2, los mismos que cita la alerta; **(2)** las 146 detecciones de personas con s ≥ 0.5 de `yolo11s` en S2, y un conteo independiente desde `events.jsonl` también da 146; **(3)** las 29 entradas inválidas de S1-W en JSONL, igual que el contador del manifest; **(4)** una exportación vacía (errores de inferencia en C1: 0 filas, solo encabezado). Las cuatro se verificaron con `--verificar`: coinciden. Capturas: [`28`](../evidencias/portal/28-exportar-vista-previa.png) (vista previa), [`29`](../evidencias/portal/29-exportar-vacio-y-error.png) (vacía y registro de descargas), [`30`](../evidencias/portal/30-exportar-error.png) (error 422 con los filtros conservados). |
 | **Pruebas** | [`tests/test_export.py`](../tests/test_export.py), 27 casos: trazabilidad y conteo igual al de `/api/eventos`, nivel detección y sus filtros, 8 filtros, determinismo y JSONL, 12 errores (422 y 404) en el módulo y en la API, cabeceras, registro y exportación vacía, vista previa con estados vacío y de error, formulario que conserva los filtros, y CLI con los mismos bytes y verificación de un archivo alterado. |
 
+## F4 · Vista en vivo del stream con resultados (funcionalidad, nivel 15)
+
+Flujo compuesto con integración adicional (el proceso del monitor y el portal se coordinan mientras
+la ejecución corre), coordinación de estados, persistencia y trazabilidad, con un caso normal y casos
+de fallo reproducibles. Código: [`src/monitor/live.py`](../src/monitor/live.py), el publicador en
+[`run.py`](../src/monitor/run.py) y las rutas `/vivo`, `/vivo/panel/<id>`, `/vivo/frame/<id>`,
+`/api/vivo` y `/api/vivo/<id>`.
+
+| | |
+|---|---|
+| **Qué hace** | En cada muestra, `monitor.run` publica en `datos/vivo/<run_id>/` el último frame con sus cajas (`frame.jpg`) y su estado (`estado.json`): el último evento (estado, conteos por zona, proporción baja, inferencia, modelo, error), la ventana en curso con su avance y sus valores parciales, la última ventana cerrada, las alertas abiertas, el estado de la fuente y los contadores. `/vivo` lo muestra y se actualiza cada 2 s con un fragmento renderizado en el servidor (la misma plantilla con o sin JavaScript), y tiene un selector cuando hay varias ejecuciones. El frame solo se vuelve a pedir cuando cambia. |
+| **Coordinación de estados** | El portal clasifica cada ejecución con reglas explícitas (`live.classify`). **`en_curso`**: el monitor reportó dentro del plazo, max(10 s, 5 × intervalo). **`fuente_caida`**: el monitor reporta, pero el último evento no trae frame; se muestra el último frame recibido y su antigüedad. **`estancada`**: el monitor dejó de reportar sin terminar (proceso detenido, colgado o equipo suspendido). **`terminada`**: la ejecución dejó su resumen final. Además, señala un modelo distinto del configurado (S2). |
+| **Persistencia y trazabilidad** | `estado.json` y `frame.jpg` son el estado *actual*, no un registro primario: no se versionan y se reescriben con escritura atómica (temporal y `os.replace`, con reintentos por si Windows tiene el archivo abierto), así que el portal nunca lee un JSON a medias. Todo lo que muestran enlaza a lo persistido: el evento (`/eventos/<id>`), la ejecución, las alertas abiertas y la ventana. El manifest registra `live_view.dir` y `live_view.write_errors`. Es de mejor esfuerzo: si una escritura falla, se cuenta y el monitor sigue (`--sin-vivo` la desactiva). |
+| **Estados vacíos y errores** | Sin ejecuciones con vista en vivo: mensaje con el comando para iniciar una, y la página se recarga sola. Ejecución inexistente o `run_id` inválido (con puntos o separadores, p. ej. `..` codificado): 404 en página, fragmento, frame y API. Todavía sin frame: mensaje. Fallo de red o del portal durante la actualización: se reintenta en el siguiente ciclo. |
+| **Uso con datos reales** | **Normal, cámara en vivo**: la ejecución `20261109T005919Z-f4-vivo` (10:00 JST, lluvia; 90 muestras, `evaluate` coincide, 0 errores de escritura), capturada en curso con la ventana 1 a 33/60 ([`31`](../evidencias/portal/31-vivo-en-curso.png)) y terminada con su alerta de baja confianza por la lluvia ([`32`](../evidencias/portal/32-vivo-terminada.png)). **Fallo de la fuente, reproducible**: un replay de C1 con `--inject-outage 30:40`; mientras dura el corte, la vista muestra `fuente_caida`, el último frame recibido hace 15.7 s y la alerta `fuente-interrumpida-v1` abierta ([`33`](../evidencias/portal/33-vivo-fuente-caida.png)); al volver la fuente, la alerta se cierra. **Monitor detenido**: el mismo proceso se detuvo a la mitad (muestra 40 de 90) y, a los 20 s, la vista lo marca `estancada` ([`34`](../evidencias/portal/34-vivo-estancada.png)). Esta última ejecución quedó incompleta a propósito y no se versiona; se reproduce con el comando de abajo, deteniéndola a mano. |
+| **Reproducir** | `uv run python -m monitor.portal` y abrir `/vivo`. En otra terminal: `uv run python -m monitor.run --frames 90 --label vivo` (cámara) o `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --replay datos/grabaciones/20261108T050904Z-c1-normal --frames 90 --inject-outage 30:40 --label vivo-fallo` (fuente caída y luego Ctrl+C para `estancada`). |
+| **Pruebas** | [`tests/test_live.py`](../tests/test_live.py), 7 pruebas: clasificación de los cuatro estados con sus antigüedades; el publicador escribe el estado y el frame, conserva el último frame durante la caída y deja `terminada` sin temporales; un fallo de escritura no detiene el monitor; estado vacío; vistas, fragmento, frame, API y 404 (incluido `..` codificado); `estancada` y `fuente_caida` en la página; y una prueba de punta a punta que corre `monitor.run` real sobre 3 frames y verifica el estado final. |
+| **Por qué nivel 15** | Coordina dos procesos con estados derivados de reglas explícitas, enlaza todo lo que muestra con registros persistidos y demuestra tanto el caso normal (cámara real) como fallos reproducibles: fuente caída por inyección y proceso detenido. |
+
 ## Control de doble conteo
 
 - M1 y la regla `cambio-sostenido-v1` (R3.3) usan la misma población, pero M1 compara distribuciones
@@ -170,6 +190,10 @@ estados vacíos o erróneos. Código: [`src/monitor/export.py`](../src/monitor/e
 - F3 reutiliza los filtros de la vista de eventos (base), pero su aportación es otra: la descarga
   con granularidad, la procedencia, el determinismo y la verificación. Los filtros adicionales se
   presentan como parte de F3, no como un extra de "filtros avanzados".
+- F4 muestra en vivo lo mismo que después se persiste (eventos, ventanas y alertas de C1, C2 y S1), pero
+  no recalcula ni reclama ninguna métrica. Su aportación es la publicación del estado en curso, su
+  clasificación (`en_curso`, `fuente_caida`, `estancada`, `terminada`) y la coordinación entre procesos.
+  S1 es el escenario de fallo; F4 solo lo hace visible mientras ocurre.
 - F1 es la visualización. Muestra W1 (M1), pero su aportación propia es la consulta parametrizada,
   la presentación por ventana y el manejo de estados vacíos o erróneos. La rúbrica permite bonos
   separados para una funcionalidad visual y la métrica que muestra. La tabla de ventanas de

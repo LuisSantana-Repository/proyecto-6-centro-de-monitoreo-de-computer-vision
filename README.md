@@ -48,6 +48,7 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`metrics.py`](src/monitor/metrics.py) | Métricas base G1–G7 y adicionales M2–M3 por ejecución y por ventana |
 | [`drift.py`](src/monitor/drift.py) | Métrica adicional M1: W1 de las puntuaciones frente a la referencia |
 | [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana, revisión humana |
+| [`live.py`](src/monitor/live.py) | Extra F4: estado en vivo que publica `monitor.run` (`datos/vivo/<run_id>/`) y su clasificación para `/vivo` |
 | [`review.py`](src/monitor/review.py) | Extra F2: estados y reglas de la revisión humana de alertas y capturas (`revisiones.jsonl` + tabla `reviews`) |
 
 Documentación de decisiones:
@@ -85,7 +86,7 @@ configuración, `cfg-0b5e664b118c` en las evidencias) y `model_ref` (`yolo11n@sh
 | Escenario S1: corte de la fuente | `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --inject-outage 180:90 ...` |
 | Escenario S2: cambio de versión del modelo | `uv run python -m monitor.run --config config/escenario-version.yaml --swap-model yolo11s:150:210 ...` (pesos: `monitor.download_model --config config/escenario-version.yaml`) |
 | Importar runs a SQLite (idempotente) | `uv run python -m monitor.ingest [datos/runs/<run_id> ...]` |
-| Portal de eventos y alertas | `uv run python -m monitor.portal` → http://127.0.0.1:8000 |
+| Portal de eventos y alertas | `uv run python -m monitor.portal` → http://127.0.0.1:8000 (vista en vivo de la ejecución en curso: `/vivo`) |
 | Exportar eventos o detecciones (mismos bytes que `/exportar`) | `uv run python -m monitor.export --run-id <id> [--nivel deteccion] [--formato jsonl] --out f.csv` · verificar: `... --verificar f.csv` |
 
 Cada ejecución escribe en `datos/runs/<run_id>/`:
@@ -194,6 +195,7 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | F1 | Funcionalidad: gráficas por ventana en el portal (`/graficas`) | 10 |
 | F2 | Funcionalidad: revisión humana de alertas y capturas (`/revision`) | 15 |
 | F3 | Funcionalidad: exportación de eventos y detecciones con procedencia y verificación (`/exportar`) | 10 |
+| F4 | Funcionalidad: vista en vivo del stream con resultados y estado de la ejecución (`/vivo`) | 15 |
 
 **S1 en resumen.** Tres variantes con la misma regla `fuente-interrumpida-v1`. En las tres se abre
 una alerta crítica, que se resuelve sola, la ventana del corte queda `insuficiente` y

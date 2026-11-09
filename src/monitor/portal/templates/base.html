@@ -70,12 +70,17 @@
   .qgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
   .qitem { background:#fff; border:1px solid var(--borde); border-radius:8px; padding:8px; font-size:12px; }
   .qitem img { width:100%; border-radius:4px; display:block; margin-bottom:6px; }
+  .vivo-en_curso { background:#e0f5ea; border-color:#b6e2c6; color:var(--ok); }
+  .vivo-fuente_caida, .vivo-estancada { background:#fde8e6; border-color:#f3c1bc; color:var(--baja); }
+  .vivo-terminada { background:#eef2f6; border-color:var(--borde); color:var(--muted); }
+  progress { vertical-align:middle; width:140px; }
 </style>
 </head>
 <body>
 <header>
   <b>Proyecto 6 · Centro de monitoreo</b>
   {% set p = request.url.path %}
+  <a href="/vivo" class="{{ 'on' if p.startswith('/vivo') }}">En vivo</a>
   <a href="/eventos" class="{{ 'on' if p.startswith('/eventos') }}">Eventos</a>
   <a href="/alertas" class="{{ 'on' if p.startswith('/alertas') }}">Alertas</a>
   <a href="/runs" class="{{ 'on' if p.startswith('/runs') }}">Ejecuciones</a>

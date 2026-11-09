@@ -2,6 +2,7 @@
 {% block title %}Alerta{% endblock %}
 {% block content %}
 <h1>Alerta <span class="mono">{{ al.alert_id }}</span></h1>
+{% include "_review_flash.html" %}
 <div class="grid">
 <div>
   <div class="card"><dl>
@@ -11,7 +12,7 @@
   <h2>Evidencia: eventos de la ventana ({{ events|length }})</h2>
   {% if events %}
   <table>
-  <thead><tr><th>Imagen</th><th>Captura (UTC)</th><th class="num">#</th><th>Estado</th><th class="num">Det.</th><th class="num">Acep./Duda/Baja</th><th class="num">Prop. baja</th><th>Error</th></tr></thead>
+  <thead><tr><th>Imagen</th><th>Captura (UTC)</th><th class="num">#</th><th>Estado</th><th class="num">Det.</th><th class="num">Acep./Duda/Baja</th><th class="num">Prop. baja</th><th>Revisión de la captura</th><th>Error</th></tr></thead>
   <tbody>
   {% for e in events %}
   <tr>
@@ -22,6 +23,7 @@
     <td class="num">{{ e.n_detections }}</td>
     <td class="num">{{ e.n_accepted }} / {{ e.n_doubt }} / {{ e.n_low }}</td>
     <td class="num">{{ '%.3f'|format(e.low_ratio) if e.low_ratio is not none else '—' }}</td>
+    <td>{% if e.image_ref %}{% if e.review.label %}<span class="badge rv-done">{{ e.review.label }}</span>{% else %}<a href="/eventos/{{ e.event_id }}#revision">pendiente</a>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
     <td class="muted">{{ e.error or '' }}</td>
   </tr>
   {% endfor %}
@@ -38,13 +40,54 @@
     <dt>Configuración</dt><dd class="mono"><a href="/config/{{ al.config_ref }}">{{ al.config_ref }}</a></dd>
     <dt>Ejecución</dt><dd class="mono">{% if al.run_id %}<a href="/runs/{{ al.run_id }}">{{ al.run_id }}</a>{% else %}—{% endif %}</dd>
     <dt>Ventana</dt><dd class="mono">{{ al.window_start or '—' }} → {{ al.window_end or '—' }}</dd>
-    {% if al.resolution %}
+    {% if al.resolution and al.resolution.downtime_s is defined %}
     <dt>Resolución</dt><dd>caída de {{ al.resolution.downtime_s }} s · {{ al.resolution.n_invalid }} muestras sin frame ·
       primer frame recibido <a class="mono" href="/eventos/{{ al.resolution.first_ok_event_id }}">{{ al.resolution.first_ok_event_id }}</a></dd>
+    {% elif al.resolution and al.resolution.duration_s is defined %}
+    <dt>Resolución</dt><dd>otra versión durante {{ al.resolution.duration_s }} s · {{ al.resolution.n_mismatch }} eventos con
+      <span class="mono">{{ (al.resolution.reported_model_refs or [])|join(', ') }}</span> ·
+      primer evento con la versión esperada <a class="mono" href="/eventos/{{ al.resolution.first_ok_event_id }}">{{ al.resolution.first_ok_event_id }}</a></dd>
     {% endif %}
   </dl></div>
+  <div class="card" id="revision"><b>Revisión humana</b>
+    <span class="badge rv-{{ rstate.state }}">{{ rstate.state }}</span>
+    <dl class="tight">
+      <dt>Regla</dt><dd>{{ al.status }} <span class="muted">(lo decide la regla; la revisión no lo cambia)</span></dd>
+      {% if rstate.acknowledged_by %}<dt>Reconocida</dt><dd>{{ rstate.acknowledged_by }} · <span class="mono">{{ rstate.acknowledged_at }}</span></dd>{% endif %}
+      {% if rstate.verdict %}<dt>Veredicto</dt><dd><b>{{ rstate.verdict }}</b> · {{ rstate.closed_by }} · <span class="mono">{{ rstate.closed_at }}</span></dd>{% endif %}
+    </dl>
+    {% if rstate.state != 'revisada' %}
+    <form class="review" method="post" action="/alertas/{{ al.alert_id }}/revision">
+      <input type="hidden" name="request_id" value="{{ request_id }}">
+      <label>Operador <input name="operator" value="{{ operator }}" maxlength="60" required></label>
+      {% if rstate.state == 'pendiente' %}
+        <label>Nota (opcional) <textarea name="note" rows="2" maxlength="1000">{{ form.note or '' }}</textarea></label>
+        <button name="action" value="reconocer">Reconocer</button>
+        <button name="action" value="comentar" class="secondary">Solo comentar</button>
+      {% else %}
+        {% if al.status == 'resolved' %}
+        <label>Veredicto <select name="verdict">{% for k, v in verdicts.items() %}<option value="{{ k }}" {{ 'selected' if form.verdict == k }} title="{{ v }}">{{ k }}</option>{% endfor %}</select></label>
+        {% else %}
+        <p class="muted small">La regla todavía no resolvió la alerta: la revisión se podrá cerrar cuando se resuelva.</p>
+        {% endif %}
+        <label>Nota <textarea name="note" rows="3" maxlength="1000">{{ form.note or '' }}</textarea></label>
+        {% if al.status == 'resolved' %}<button name="action" value="cerrar">Cerrar revisión</button>{% endif %}
+        <button name="action" value="comentar" class="secondary">Comentar</button>
+      {% endif %}
+    </form>
+    {% else %}
+    <form class="review" method="post" action="/alertas/{{ al.alert_id }}/revision">
+      <input type="hidden" name="request_id" value="{{ request_id }}">
+      <label>Operador <input name="operator" value="{{ operator }}" maxlength="60" required></label>
+      <label>Comentario <textarea name="note" rows="2" maxlength="1000"></textarea></label>
+      <button name="action" value="comentar" class="secondary">Comentar</button>
+    </form>
+    {% endif %}
+    <h3>Historial</h3>
+    {% include "_review_history.html" %}
+  </div>
   <div class="card"><b>Métrica que disparó la regla</b><pre>{{ al.metric|pretty }}</pre></div>
-  <p><a href="/api/alertas/{{ al.alert_id }}">Ver JSON de la alerta</a></p>
+  <p><a href="/api/alertas/{{ al.alert_id }}">Ver JSON de la alerta</a> · <a href="/api/alertas/{{ al.alert_id }}/revision">JSON de la revisión</a></p>
 </div>
 </div>
 {% endblock %}

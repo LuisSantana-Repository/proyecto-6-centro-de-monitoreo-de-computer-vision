@@ -6,6 +6,7 @@ Uso:
   uv run python -m monitor.run --replay datos/grabaciones/<run> --label x    # reproduce a 1 frame / 2 s
   uv run python -m monitor.run --replay ... --no-pace --label x              # reprocesa sin esperar (solo análisis)
   uv run python -m monitor.run --config config/escenario-interrupcion.yaml --frames 240       --inject-outage 180:90 --label s1                                      # escenario S1: corte de la fuente
+  uv run python -m monitor.run --config config/escenario-version.yaml --replay ... --frames 240       --swap-model yolo11s:150:210 --label s2                                # escenario S2: cambio de versión
 """
 
 from __future__ import annotations
@@ -21,9 +22,9 @@ from pathlib import Path
 import cv2
 import psutil
 
-from monitor.alerts import SourceHealthMonitor, WindowEvaluator
+from monitor.alerts import ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
 from monitor.config import config_ref, load_config, sha256_file
-from monitor.detector import Detector
+from monitor.detector import Detector, SwapPlan
 from monitor.events import Detection, EventWriter, InferenceEvent
 from monitor.policy import LOW, zone, zone_counts
 from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource, utc_now_iso
@@ -98,6 +99,9 @@ def main() -> None:
     ap.add_argument("--label", default="run", help="etiqueta del run (p. ej. referencia, c1, c2)")
     ap.add_argument("--inject-outage", default=None, metavar="INICIO:DURACION",
                     help="escenario S1: corta la fuente de INICIO a INICIO+DURACION segundos de stream")
+    ap.add_argument("--swap-model", default=None, metavar="NOMBRE:INICIO:DURACION",
+                    help="escenario S2: usa el modelo NOMBRE (model_alternatives) de INICIO a INICIO+DURACION "
+                         "segundos de stream, sin cambiar la configuración, y luego vuelve al configurado")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -128,6 +132,26 @@ def main() -> None:
     print(f"[{run_id}] modelo={detector.model_ref} config={cref} umbrales=({lower}, {upper})")
     detector.warmup()
 
+    # escenario S2: el artefacto que el "despliegue" pone en lugar del configurado. Se verifica igual que
+    # el principal (identidad resoluble), se carga antes de empezar y solo se usa durante la ventana del plan.
+    swap, swap_info, alt_detector = None, None, None
+    if args.swap_model:
+        swap = SwapPlan.parse(args.swap_model)
+        alt = (cfg.get("model_alternatives") or {}).get(swap.name)
+        if alt is None:
+            raise SystemExit(f"--swap-model: {swap.name} no está en model_alternatives de {args.config}")
+        alt_sha = sha256_file(alt["weights"]) if Path(alt["weights"]).exists() else None
+        if alt_sha != alt["sha256"]:
+            raise SystemExit(f"Faltan o no coinciden los pesos de {swap.name}. Ejecuta: "
+                             f"uv run python -m monitor.download_model --config {args.config}")
+        alt_detector = Detector(cfg, alt_sha, weights=alt["weights"], name=swap.name)
+        alt_detector.warmup()
+        swap_info = {**swap.as_dict(), "model_ref": alt_detector.model_ref, "sha256": alt_sha,
+                     "weights": alt["weights"]}
+        print(f"  S2: {alt_detector.model_ref} reemplaza al modelo de t={swap.start_s} a "
+              f"t={swap.start_s + swap.duration_s} s de stream")
+    interval = cfg["source"]["sample_interval_s"]
+
     manifest = {
         "run_id": run_id,
         "label": args.label,
@@ -144,6 +168,7 @@ def main() -> None:
         "paced": not (args.replay and args.no_pace),
         "recording_dir": str(rec_dir) if args.record else None,
         "fault_injection": fault.as_dict() if fault else None,
+        "model_swap": swap_info,
     }
     writer = EventWriter(run_dir / "events.jsonl")
     win_log = JsonlLog(run_dir / "windows.jsonl")
@@ -151,6 +176,7 @@ def main() -> None:
     health_log = JsonlLog(run_dir / "fuente.jsonl")
     evaluator = WindowEvaluator(cfg, cref, run_id)
     health = SourceHealthMonitor(cfg, cref, run_id)
+    version = ModelVersionMonitor(cfg, cref, run_id)
     probe = ResourceProbe(run_dir)
     manifest["environment"]["cpu_count_logical"] = psutil.cpu_count()
     manifest["environment"]["ram_total_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
@@ -199,6 +225,7 @@ def main() -> None:
         for fr in source.frames(args.frames):
             frame_id = f"{run_id}-f{fr.seq:06d}"
             dets, timings, err = [], {}, None
+            det = alt_detector if (swap and swap.active_at((fr.seq - 1) * interval)) else detector
             if fr.image is None:
                 status = "invalid_input"
                 err = fr.error or "frame no disponible o no decodificable"
@@ -206,7 +233,7 @@ def main() -> None:
                 if args.record:
                     cv2.imwrite(str(rec_dir / f"{fr.seq:06d}.jpg"), fr.image)
                 try:
-                    raw, timings = detector.predict(fr.image)
+                    raw, timings = det.predict(fr.image)
                     dets = [Detection(**d, zone=zone(d["score"], lower, upper)) for d in raw]
                     status = "ok" if dets else "no_detections"
                 except Exception as e:  # el fallo técnico queda registrado como evento
@@ -232,7 +259,7 @@ def main() -> None:
                 captured_at=fr.captured_at,
                 source_id=fr.source_id,
                 origin=fr.origin,
-                model_ref=detector.model_ref,
+                model_ref=det.model_ref,           # lo que realmente se ejecutó (S2: puede no ser lo configurado)
                 config_ref=cref,
                 thresholds={"lower": lower, "upper": upper},
                 status=status,
@@ -257,6 +284,7 @@ def main() -> None:
             )
             drain_source_health()
             handle_alerts(*health.add(ev))
+            handle_alerts(*version.add(ev))
             handle_window(evaluator.add(ev))
     except KeyboardInterrupt:
         print("Interrumpido por el usuario.")

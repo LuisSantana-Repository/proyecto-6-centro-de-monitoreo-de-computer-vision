@@ -44,6 +44,12 @@ def load_config(path: str | Path) -> dict:
     sh = cfg.get("source_health")
     if sh and (sh["consecutive_invalid"] < 1 or sh["recover_after_valid"] < 1):
         raise ValueError("source_health: consecutive_invalid y recover_after_valid deben ser >= 1")
+    mv = cfg.get("model_version")
+    if mv and (mv["consecutive_mismatch"] < 1 or mv["recover_after_match"] < 1):
+        raise ValueError("model_version: consecutive_mismatch y recover_after_match deben ser >= 1")
+    for name, alt in (cfg.get("model_alternatives") or {}).items():
+        if not {"weights", "sha256"} <= set(alt):
+            raise ValueError(f"model_alternatives.{name}: faltan weights o sha256")
     return cfg
 
 
@@ -55,6 +61,11 @@ def config_ref(cfg: dict) -> str:
     relevant = {k: v for k, v in cfg.items() if k != "output"}
     canon = json.dumps(relevant, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return "cfg-" + hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+
+
+def expected_model_ref(cfg: dict) -> str:
+    """model_ref que deben reportar los eventos según la configuración (nombre + SHA-256 declarado)."""
+    return f"{cfg['model']['name']}@sha256:{cfg['model']['sha256'][:12]}"
 
 
 def sha256_file(path: str | Path) -> str:

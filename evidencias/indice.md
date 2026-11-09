@@ -2,7 +2,7 @@
 
 **Estudiante:** Luis Santana · **Entrega:** individual · **Configuración:** `cfg-0b5e664b118c`
 ([`config/monitor.yaml`](../config/monitor.yaml)) · **Modelo:** `yolo11n@sha256:0ebbc80d4a76`
-([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, M1, M2, M3 y F1 ([`docs/extras.md`](../docs/extras.md);
+([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, M1, M2, M3, F1, F2 y F3 ([`docs/extras.md`](../docs/extras.md);
 sección [Extras](#extras) abajo).
 
 ## Revisiones Git
@@ -15,6 +15,7 @@ sección [Extras](#extras) abajo).
 | `12d76dd` | Extras M1–M3 (`monitor.drift`, latencia de punta a punta, recuperación de la fuente). |
 | `061ba82` | Extra F1: gráficas por ventana en el portal. |
 | `a18c724` | Ejecuciones en vivo S1-V y S1-W, sus evidencias y el filtro de códigos ANSI en el registro de la fuente. |
+| siguiente | Extras S2 (regla de versión del modelo, estado `otra_version`, `--swap-model`) F2 (revisión humana) y F3 (exportación), con sus ejecuciones y evidencias. |
 
 Respecto de `0862536`, `50b3b0a` agrega:
 - la muestra de recursos del proceso por evento (`resources`, para G3);
@@ -26,7 +27,8 @@ Ninguno cambia la inferencia, las zonas, las ventanas ni las reglas. La configur
 es la misma en las cuatro ejecuciones base, y `monitor.evaluate` recalcula sus ventanas y alertas con
 el código actual y coinciden. Los extras tampoco cambian nada de eso: agregan una regla de la fuente,
 métricas y vistas. Las ejecuciones de S1 usan `cfg-3ebc8541e4f7`, que hereda la configuración base y
-solo agrega los parámetros de la fuente.
+solo agrega los parámetros de la fuente. La de S2 usa `cfg-2b094007ccc7`, que hereda el mismo modelo
+esperado y solo agrega la regla de versión y el artefacto alternativo.
 
 ## Ejecuciones oficiales
 
@@ -46,6 +48,7 @@ de los eventos resuelven tal cual. Cada carpeta contiene:
 | `20261108T193149Z-s1-replay-interrupcion` | extra **S1-R** | grabación de C1, corte inyectado a los 180 s durante 90 s (240 frames) | 1 frame / 2 s |
 | `20261108T222800Z-s1-vivo-interrupcion` | extra **S1-V** (07:28 JST, lluvia) | cámara en vivo, corte inyectado a los 180 s durante 90 s (240 frames) | en vivo |
 | `20261108T224433Z-s1-wifi` | extra **S1-W** (07:44 JST, lluvia) | cámara en vivo, WiFi apagado de verdad (240 frames) | en vivo |
+| `20261108T232126Z-s2-cambio-version` | extra **S2** | grabación de C1; `yolo11s` en las muestras 76–180 (240 frames) | 1 frame / 2 s |
 
 Las grabaciones completas (≈ 850 MB) no se versionan. Una muestra de 60 frames, la primera
 ventana de C1 y de C2, está en [`entradas/`](entradas/).
@@ -88,7 +91,7 @@ Desde un clon limpio:
 ```bash
 uv sync
 uv run python -m monitor.download_model         # pesos verificados por SHA-256
-uv run pytest -q                                # 46 pruebas
+uv run pytest -q                                # 92 pruebas
 
 # 1) Recalcular desde los registros primarios versionados (sin modelo)
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
@@ -105,7 +108,7 @@ uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --l
 ```
 
 Comprobado en un clon limpio de `97469f3` (antes de los extras), descargado desde GitHub el 2026-11-08:
-- 29 pruebas pasan (hoy son 46).
+- 29 pruebas pasan (hoy son 92).
 - `evaluate` coincide en las cuatro ejecuciones.
 - Las métricas de C2 son idénticas a [`metricas/`](metricas/).
 - La muestra de C2 reproduce la ventana 1 y su alerta.
@@ -136,6 +139,17 @@ Las capturas están en [`portal/`](portal/); se tomaron con Edge headless sobre 
 | 17 | `/graficas?run_id=…s1-wifi` | F1 sobre S1-W |
 | 18 | `/runs/20261108T222800Z-s1-vivo-interrupcion` | S1-V: los 7 intentos de reconexión con su espera |
 | 19 | `/graficas?run_id=…s1-vivo-interrupcion` | F1 sobre S1-V |
+| 20 | `/runs/20261108T232126Z-s2-cambio-version` | S2: versiones reportadas (135 `yolo11n`, 105 `yolo11s`) y ventanas `otra_version` |
+| 21 | `/alertas/alert-…s2-cambio-version-version-modelo-v1-f000076` | alerta de versión: esperada frente a reportada, evidencia y resolución (210 s, 105 eventos) |
+| 22 | `/graficas?run_id=…s2-cambio-version` | F1 sobre S2: huecos `otra_version`; W1 de `yolo11s` dentro del umbral |
+| 23 | `/revision?run_id=…s1-wifi` | F2: cola de capturas, avance y alertas de la ejecución con su estado de revisión |
+| 24 | `/alertas/alert-…s1-wifi-fuente-interrumpida-v1-f000094` | F2: alerta reconocida y cerrada (`esperada`) con su historial |
+| 25 | `/alertas/alert-…c2-baja-confianza-cambio-sostenido-v1-w0003` | F2: alerta abierta reconocida; no se ofrece cerrar |
+| 26 | `/eventos/evt-…s1-wifi-f000001` | F2: captura revisada por el autor dos veces (historial) |
+| 27 | `/alertas?revision=revisada` | F2: filtro de alertas por estado de revisión |
+| 28 | `/exportar?preview=1&run_id=…s2…&model_ref=yolo11s…&class_name=person&min_score=0.5&nivel=deteccion` | F3: vista previa (146 detecciones, SHA-256, primeras filas) |
+| 29 | `/exportar?preview=1&run_id=…c1-normal&status=inference_error` | F3: exportación vacía y registro de descargas |
+| 30 | `/exportar?preview=1&…&since=ayer` | F3: error 422 con los filtros conservados |
 
 Respuestas JSON de la API en el mismo momento: [`portal/api/`](portal/api/).
 
@@ -146,6 +160,9 @@ Detalle, definiciones y control de doble conteo: [`docs/extras.md`](../docs/extr
 | ID | Nivel | Evidencia principal |
 |---|---|---|
 | **S1** interrupción y recuperación de la fuente | 10 | ejecuciones S1-R, S1-V y S1-W (tabla de arriba); [`docs/escenario-s1.md`](../docs/escenario-s1.md#resultados); capturas [`15`](portal/15-run-s1-wifi.png)–[`19`](portal/19-graficas-s1-vivo.png); [`tests/test_source_health.py`](../tests/test_source_health.py) |
+| **S2** cambio de versión del modelo | 10 | ejecución `20261108T232126Z-s2-cambio-version`; [`docs/escenario-s2.md`](../docs/escenario-s2.md#resultados); capturas [`20`](portal/20-run-s2.png)–[`22`](portal/22-graficas-s2.png); [`portal/api/alerta-version-s2.json`](portal/api/alerta-version-s2.json); [`tests/test_model_version.py`](../tests/test_model_version.py) |
+| **F2** revisión humana de alertas y capturas | 15 | `datos/runs/*/revisiones.jsonl` (9 acciones); capturas [`23`](portal/23-revision-cola-s1-wifi.png)–[`27`](portal/27-alertas-por-revision.png); [`portal/api/revisiones.json`](portal/api/revisiones.json); [`tests/test_review.py`](../tests/test_review.py) |
+| **F3** exportación de eventos | 10 | [`exportaciones/`](exportaciones/) (4 archivos + registro, verificados con `monitor.export --verificar`); capturas [`28`](portal/28-exportar-vista-previa.png)–[`30`](portal/30-exportar-error.png); [`tests/test_export.py`](../tests/test_export.py) |
 | **M1** desplazamiento de la distribución (W1) | 8 | [`config/referencia-distribucion.json`](../config/referencia-distribucion.json); `metricas_adicionales` en [`metricas/`](metricas/); [`tests/test_drift.py`](../tests/test_drift.py) |
 | **M2** latencia de punta a punta | 5 | `metricas_adicionales.M2_latencia_e2e` y `ventanas[].M2_e2e_p95_ms` en [`metricas/`](metricas/) |
 | **M3** recuperación de la fuente y disponibilidad | 5 | `metricas_adicionales.M3_recuperacion_fuente` de las tres ejecuciones de S1 |
@@ -156,4 +173,6 @@ Para recalcular S1 desde los registros versionados:
 ```bash
 uv run python -m monitor.evaluate datos/runs/20261108T224433Z-s1-wifi   # incluye la alerta de la fuente
 uv run python -m monitor.metrics  datos/runs/20261108T224433Z-s1-wifi   # M3: 84.6 s, disponibilidad 0.8792
+uv run python -m monitor.evaluate datos/runs/20261108T232126Z-s2-cambio-version                          # S2: alerta de versión
+uv run python -m monitor.evaluate datos/runs/20261108T232126Z-s2-cambio-version --sin-reaccion-version   # S2: contrafactual
 ```

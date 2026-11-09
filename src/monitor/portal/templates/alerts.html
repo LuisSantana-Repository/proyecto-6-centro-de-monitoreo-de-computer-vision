@@ -20,12 +20,16 @@
     <select name="status"><option value="">Todos</option>
     {% for s in ['open', 'resolved'] %}<option {{ 'selected' if f.status == s }}>{{ s }}</option>{% endfor %}
     </select></label>
+  <label>Revisión
+    <select name="revision"><option value="">Todas</option>
+    {% for s in ['pendiente', 'reconocida', 'revisada'] %}<option {{ 'selected' if f.revision == s }}>{{ s }}</option>{% endfor %}
+    </select></label>
   <button>Filtrar</button> <a href="/alertas">Limpiar</a>
 </form>
 </div>
 {% if items %}
 <table>
-<thead><tr><th>Momento (UTC)</th><th>Alerta</th><th>Regla</th><th>Severidad</th><th>Estado</th><th>Motivo</th><th>Acción sugerida</th><th class="num">Eventos</th><th>Ventana</th></tr></thead>
+<thead><tr><th>Momento (UTC)</th><th>Alerta</th><th>Regla</th><th>Severidad</th><th>Estado</th><th>Revisión</th><th>Motivo</th><th>Acción sugerida</th><th class="num">Eventos</th><th>Ventana</th></tr></thead>
 <tbody>
 {% for a in items %}
 <tr>
@@ -34,6 +38,7 @@
   <td class="mono">{{ a.rule_id }}</td>
   <td><span class="badge sev-{{ a.severity }}">{{ a.severity }}</span></td>
   <td>{{ a.status }}</td>
+  <td><span class="badge rv-{{ a.review.state }}">{{ a.review.state }}</span>{% if a.review.verdict %}<br><span class="muted">{{ a.review.verdict }}</span>{% endif %}</td>
   <td>{{ a.reason }}</td>
   <td>{{ a.suggested_action }}</td>
   <td class="num">{{ a.n_events }}</td>

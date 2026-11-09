@@ -10,6 +10,12 @@
     <dt>Inicio / fin</dt><dd class="mono">{{ r.started_at }} → {{ r.finished_at or 'en curso' }}</dd>
     <dt>Configuración</dt><dd class="mono"><a href="/config/{{ r.config_ref }}">{{ r.config_ref }}</a></dd>
     <dt>Modelo</dt><dd class="mono">{{ r.model_ref }}<br>sha256 {{ m.model_sha256 }}</dd>
+    {% if versions|length > 1 or m.model_swap %}
+    <dt>Versiones reportadas</dt><dd>{% for v in versions %}<span class="mono">{{ v.model_ref }}</span>: {{ v.n }} eventos
+      (#{{ v.first_seq }}–#{{ v.last_seq }}){% if v.model_ref != r.model_ref %} <span class="badge sev-critical">distinta de la configurada</span>{% endif %}<br>{% endfor %}
+      {% if m.model_swap %}<span class="muted">cambio inyectado (S2): {{ m.model_swap.name }} de t={{ m.model_swap.start_s }} a
+      t={{ m.model_swap.start_s + m.model_swap.duration_s }} s de stream</span>{% endif %}</dd>
+    {% endif %}
     <dt>Clases</dt><dd>{{ m.class_names.values()|join(', ') }}</dd>
     <dt>Fuente</dt><dd>{% for k, v in (m.source_meta or {}).items() %}{{ k }}: {{ v }}<br>{% endfor %}</dd>
     <dt>Grabación</dt><dd class="mono">{{ m.recording_dir or '—' }}</dd>
@@ -37,12 +43,12 @@
     <td class="num">{{ w.n_eligible }}</td>
     <td class="num">{{ '%.3f'|format(w.low_ratio) if w.low_ratio is not none else '—' }}</td>
     <td class="num">{{ '%.3f'|format(w.mean_score) if w.mean_score is not none else '—' }}</td>
-    <td><span class="badge {{ {'normal': 's-ok', 'fuera_de_rango': 'sev-warning', 'insuficiente': 's-no_detections', 'incompleta': 's-no_detections'}[w.state] }}">{{ w.state }}</span></td>
+    <td><span class="badge {{ {'normal': 's-ok', 'fuera_de_rango': 'sev-warning', 'insuficiente': 's-no_detections', 'incompleta': 's-no_detections', 'otra_version': 's-no_detections'}.get(w.state, '') }}">{{ w.state }}</span></td>
     <td class="mono">{% for k, v in w.conditions.items() %}{{ k }}: {{ 'sí' if v else ('no' if v is not none else 'sin evaluar') }}<br>{% endfor %}</td>
   </tr>
   {% endfor %}
   </tbody></table>
-  <p class="muted">"insuficiente" = evidencia insuficiente (no se considera normal ni anómala). "incompleta" = ventana final con menos frames que el tamaño configurado.</p>
+  <p class="muted">"insuficiente" = evidencia insuficiente (no se considera normal ni anómala). "incompleta" = ventana final con menos frames que el tamaño configurado. "otra_version" = la ventana tiene eventos de un modelo distinto del configurado: sus umbrales no se interpretan (escenario S2).</p>
   {% else %}<div class="empty">Esta ejecución no tiene ventanas registradas.</div>{% endif %}
 </div>
 <div>

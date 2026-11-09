@@ -19,7 +19,7 @@
   <label>Desde (UTC)<input name="since" value="{{ f.since }}" placeholder="2026-11-08T05:00"></label>
   <label>Hasta (UTC)<input name="until" value="{{ f.until }}" placeholder="2026-11-08T06:00"></label>
   <label><span>Solo con imagen</span><input type="checkbox" name="with_image" value="true" {{ 'checked' if f.with_image }}></label>
-  <button>Filtrar</button> <a href="/eventos">Limpiar</a>
+  <button>Filtrar</button> <a href="/eventos">Limpiar</a> · <a href="/exportar?preview=1&{{ qs }}">Exportar estos eventos</a>
 </form>
 </div>
 {% if items %}

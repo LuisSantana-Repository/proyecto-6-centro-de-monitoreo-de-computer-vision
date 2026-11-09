@@ -87,8 +87,13 @@ def trace_problems(e: InferenceEvent, manifest: dict, root: Path) -> list[str]:
     p = [f"falta {f}" for f in REQUIRED if not getattr(e, f)]
     if e.config_ref != manifest["config_ref"]:
         p.append("config_ref no coincide con el manifest")
-    if e.model_ref.split("@sha256:")[-1] != manifest["model_sha256"][:12]:
-        p.append("model_ref no coincide con el SHA-256 del modelo")
+    # el model_ref debe resolver a un artefacto verificado de la ejecución: el configurado o, en el
+    # escenario S2, el que el despliegue cargó (manifest.model_swap, también verificado por SHA-256).
+    # Que sea otra versión no lo vuelve intrazable: eso lo mide G6 y lo vigila la regla de versión.
+    known = {manifest["model_sha256"][:12]} | ({manifest["model_swap"]["sha256"][:12]}
+                                               if manifest.get("model_swap") else set())
+    if e.model_ref.split("@sha256:")[-1] not in known:
+        p.append("model_ref no corresponde a un artefacto verificado de la ejecución")
     lower, upper = e.thresholds.get("lower"), e.thresholds.get("upper")
     pol = manifest["config"]["policy"]
     if (lower, upper) != (pol["lower"], pol["upper"]):
@@ -200,6 +205,7 @@ def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("
             "G7_alertas_activas": g7_active(eps, ch[-1].captured_at) if eps else 0,
             "M2_e2e_p95_ms": m2_e2e_latency(ch)["p95_ms"],
             "M3_disponibilidad_fuente": availability(ch),
+            "G6_prop_version_esperada": g6_version(ch, expected_model_ref)["valor"],
         })
 
     paced = manifest.get("paced", True)

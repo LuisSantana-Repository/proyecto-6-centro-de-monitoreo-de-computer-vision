@@ -2,6 +2,7 @@
 {% block title %}Evento {{ ev.seq }}{% endblock %}
 {% block content %}
 <h1>Evento <span class="mono">{{ ev.event_id }}</span></h1>
+{% include "_review_flash.html" %}
 <div class="grid">
 <div>
   {% if ev.image_ref %}
@@ -53,6 +54,22 @@
     <b>Alertas que referencian este evento</b>
     {% if alerts %}<ul>{% for a in alerts %}<li><a href="/alertas/{{ a.alert_id }}">{{ a.alert_id }}</a> · <span class="badge sev-{{ a.severity }}">{{ a.severity }}</span> · {{ a.rule_id }}</li>{% endfor %}</ul>
     {% else %}<p class="muted">Ninguna.</p>{% endif %}
+  </div>
+  <div class="card" id="revision"><b>Revisión de la captura</b>
+    {% if ev.image_ref %}
+    <span class="badge rv-{{ 'done' if rstate.label else 'pendiente' }}">{{ rstate.label or 'pendiente' }}</span>
+    <form class="review" method="post" action="/eventos/{{ ev.event_id }}/revision">
+      <input type="hidden" name="request_id" value="{{ request_id }}">
+      <label>Operador <input name="operator" value="{{ operator }}" maxlength="60" required></label>
+      <label>Etiqueta <select name="label">{% for k, v in labels.items() %}<option value="{{ k }}" {{ 'selected' if (form.label or rstate.label) == k }} title="{{ v }}">{{ k }} · {{ v }}</option>{% endfor %}</select></label>
+      <label>Nota {{ '(obligatoria con "otro")' }} <textarea name="note" rows="2" maxlength="1000">{{ form.note or '' }}</textarea></label>
+      <button name="action" value="revisar">{{ 'Volver a revisar' if rstate.label else 'Guardar revisión' }}</button>
+    </form>
+    <h3>Historial</h3>
+    {% include "_review_history.html" %}
+    {% else %}
+    <p class="muted">Sin imagen capturada: no hay captura que revisar.</p>
+    {% endif %}
   </div>
   <p><a href="/api/eventos/{{ ev.event_id }}">Ver JSON del evento</a> · <a href="/eventos?run_id={{ ev.run_id }}">Eventos de esta ejecución</a></p>
 </div>

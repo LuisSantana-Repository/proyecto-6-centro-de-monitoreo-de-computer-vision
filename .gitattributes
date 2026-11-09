@@ -1,0 +1,2 @@
+# Exportaciones de F3: sus SHA-256 se verifican byte a byte; git no debe convertir los finales de línea.
+evidencias/exportaciones/** -text

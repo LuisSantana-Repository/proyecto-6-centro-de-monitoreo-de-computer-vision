@@ -20,7 +20,7 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
     cfg = load_config(args.config)
-    app = create_app(cfg["output"]["db"], root=".")
+    app = create_app(cfg["output"]["db"], root=".", runs_dir=cfg["output"]["runs_dir"])
     print(f"Portal en http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 

@@ -13,6 +13,9 @@ Estados de ventana:
   incompleta     -> ventana final con menos de size_frames eventos (no se evalúa)
   normal         -> suficiente y ninguna regla cumple su condición
   fuera_de_rango -> suficiente y al menos una regla cumple su condición
+  otra_version   -> (solo con `model_version.exclude_windows`, escenario S2) algún evento válido reportó un
+                    model_ref distinto del configurado: la referencia y los umbrales no aplican a ese modelo,
+                    así que no se evalúa y, como "insuficiente", no rompe ni suma rachas
 
 Regla: condición (señal op umbral) en `consecutive` ventanas suficientes seguidas -> se abre UNA alerta
 (episodio). Mientras la condición siga, el episodio continúa sin alertas repetidas. La primera ventana
@@ -23,6 +26,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from monitor.config import expected_model_ref
 from monitor.events import InferenceEvent
 from monitor.source import utc_now_iso
 
@@ -47,6 +51,7 @@ class Window:
     mean_score: float | None
     state: str
     conditions: dict = field(default_factory=dict)   # rule_id -> bool | None (None = no evaluada)
+    n_other_version: int = 0                         # eventos válidos con un model_ref distinto del esperado
     event_ids: list[str] = field(default_factory=list)
     image_refs: list[str] = field(default_factory=list)
 
@@ -95,6 +100,8 @@ class WindowEvaluator:
         self.idx = 0
         self.streak: dict[str, list[Window]] = {r["rule_id"]: [] for r in self.rules}
         self.open: dict[str, dict | None] = {r["rule_id"]: None for r in self.rules}
+        mv = cfg.get("model_version")
+        self.expected = expected_model_ref(cfg) if mv and mv.get("exclude_windows", True) else None
 
     # -- API ----------------------------------------------------------------------
     def add(self, ev: InferenceEvent) -> tuple[Window | None, list[dict], list[dict]]:
@@ -115,13 +122,17 @@ class WindowEvaluator:
     def _close(self, events: list[InferenceEvent], partial: bool):
         self.idx += 1
         st = window_stats(events, self.floor, self.lower)
-        sufficient = (not partial) and st["n_valid"] >= self.min_valid and st["n_eligible"] >= self.min_eligible
+        n_other = sum(1 for e in events if self.expected and e.status in VALID and e.model_ref != self.expected)
+        sufficient = ((not partial) and not n_other
+                      and st["n_valid"] >= self.min_valid and st["n_eligible"] >= self.min_eligible)
         conditions = {
             r["rule_id"]: (_check(st[r["signal"]], r["op"], r["threshold"]) if sufficient else None)
             for r in self.rules
         }
         if partial:
             state = "incompleta"
+        elif n_other:
+            state = "otra_version"
         elif not sufficient:
             state = "insuficiente"
         else:
@@ -130,11 +141,12 @@ class WindowEvaluator:
             window_id=f"win-{self.run_id}-{self.idx:04d}", run_id=self.run_id, idx=self.idx,
             config_ref=self.config_ref, first_event_id=events[0].event_id, last_event_id=events[-1].event_id,
             start=events[0].captured_at, end=events[-1].captured_at, state=state, conditions=conditions,
-            event_ids=[e.event_id for e in events], image_refs=[e.image_ref for e in events if e.image_ref], **st,
+            event_ids=[e.event_id for e in events], image_refs=[e.image_ref for e in events if e.image_ref],
+            n_other_version=n_other, **st,
         )
         new_alerts, updates = [], []
         if not sufficient:
-            return win, new_alerts, updates     # sin evidencia suficiente: no suma ni rompe rachas
+            return win, new_alerts, updates     # sin evidencia suficiente u otra versión: no suma ni rompe rachas
         for rule in self.rules:
             rid = rule["rule_id"]
             if conditions[rid]:
@@ -267,6 +279,84 @@ class SourceHealthMonitor:
                        "errors": [e.error for e in bad]},
             "event_ids": [e.event_id for e in bad],
             "image_refs": [],
+        }
+
+
+class ModelVersionMonitor:
+    """Regla de versión del modelo (escenario S2), evaluada evento por evento.
+
+    Compara el model_ref que reporta cada evento con inferencia válida contra el configurado
+    (`model.name` + SHA-256 declarado). `consecutive_mismatch` eventos seguidos con otra versión abren
+    UNA alerta; no se repite mientras dure. `recover_after_match` eventos seguidos con la versión esperada
+    la resuelven y registran cuánto duró, cuántos eventos la reportaron y qué versiones aparecieron.
+    Los eventos sin inferencia (invalid_input, inference_error) no cuentan: no confirman ninguna versión.
+    """
+
+    def __init__(self, cfg: dict, config_ref: str, run_id: str):
+        self.rule = cfg.get("model_version")
+        self.expected = expected_model_ref(cfg) if self.rule else None
+        self.config_ref = config_ref
+        self.run_id = run_id
+        self.bad: list[InferenceEvent] = []
+        self.good: list[InferenceEvent] = []
+        self.open: dict | None = None
+
+    def add(self, ev: InferenceEvent) -> tuple[list[dict], list[dict]]:
+        if not self.rule or ev.status not in VALID:
+            return [], []
+        r = self.rule
+        if ev.model_ref != self.expected:
+            self.good = []
+            self.bad.append(ev)
+            if self.open is None and len(self.bad) >= r["consecutive_mismatch"]:
+                alert = self._make_alert(self.bad)
+                self.open = {"alert_id": alert["alert_id"], "first": self.bad[0], "n_mismatch": len(self.bad),
+                             "last_bad": ev, "reported": sorted({e.model_ref for e in self.bad})}
+                return [alert], []
+            if self.open is not None:
+                self.open["n_mismatch"] += 1
+                self.open["last_bad"] = ev
+                self.open["reported"] = sorted(set(self.open["reported"]) | {ev.model_ref})
+            return [], []
+        if self.open is None:
+            self.bad = []                         # la racha exige eventos seguidos
+            return [], []
+        self.good.append(ev)
+        if len(self.good) < r["recover_after_match"]:
+            return [], []
+        ep, first_ok = self.open, self.good[0]
+        upd = {"alert_id": ep["alert_id"], "status": "resolved", "resolved_at": ev.captured_at,
+               "resolved_by_window": ev.event_id, "window_end": ep["last_bad"].captured_at,
+               "n_mismatch": ep["n_mismatch"],
+               "duration_s": round(_secs(ep["first"].captured_at, first_ok.captured_at), 1),
+               "reported_model_refs": ep["reported"], "first_ok_event_id": first_ok.event_id}
+        self.open, self.bad, self.good = None, [], []
+        return [], [upd]
+
+    def _make_alert(self, bad: list[InferenceEvent]) -> dict:
+        r = self.rule
+        reported = bad[-1].model_ref
+        return {
+            "alert_id": f"alert-{self.run_id}-{r['rule_id']}-f{bad[0].seq:06d}",
+            "rule_id": r["rule_id"],
+            "run_id": self.run_id,
+            "timestamp": utc_now_iso(),
+            "severity": r["severity"],
+            "status": "open",
+            "reason": (f"{len(bad)} eventos seguidos reportaron el modelo {reported} en lugar del configurado "
+                       f"{self.expected}, desde {bad[0].captured_at} (umbral {r['consecutive_mismatch']})."),
+            "suggested_action": r["suggested_action"],
+            "config_ref": self.config_ref,
+            "window_start": bad[0].captured_at,
+            "window_end": bad[-1].captured_at,
+            "n_windows": None,
+            "suppressed_repeats": 0,
+            "metric": {"signal": "eventos_con_otra_version_consecutivos", "op": ">=",
+                       "threshold": r["consecutive_mismatch"], "value": len(bad),
+                       "expected_model_ref": self.expected, "reported_model_ref": reported,
+                       "recover_after_match": r["recover_after_match"]},
+            "event_ids": [e.event_id for e in bad],
+            "image_refs": [e.image_ref for e in bad if e.image_ref],
         }
 
 

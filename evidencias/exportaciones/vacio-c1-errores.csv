@@ -1,0 +1,1 @@
+event_id,run_id,seq,captured_at,timestamp,source_id,model_ref,config_ref,status,n_detections,n_accepted,n_doubt,n_low,low_ratio,inference_ms,e2e_ms,image_ref,capture_reason,error,alert_ids,revision_captura

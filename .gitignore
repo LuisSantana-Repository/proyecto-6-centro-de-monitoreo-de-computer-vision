@@ -17,8 +17,10 @@ datos/runs/*
 !datos/runs/20261108T193149Z-s1-replay-interrupcion/
 !datos/runs/20261108T222800Z-s1-vivo-interrupcion/
 !datos/runs/20261108T224433Z-s1-wifi/
+!datos/runs/20261108T232126Z-s2-cambio-version/
 datos/grabaciones/
 datos/logs/
+datos/exportaciones.jsonl
 datos/*.db
 *.db-journal
 

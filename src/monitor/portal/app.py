@@ -1,6 +1,9 @@
 """Portal de consulta: eventos, alertas, runs y configuraciones (FastAPI + Jinja2 sobre SQLite).
 
 Cada vista HTML tiene su equivalente JSON en /api/... para consultas verificables.
+Las consultas usan una conexión de solo lectura. La única escritura es la revisión humana (F2,
+monitor.review): se agrega a datos/runs/<run_id>/revisiones.jsonl y se indexa en SQLite; los registros
+del monitor (eventos, ventanas, alertas) nunca se modifican desde el portal.
 """
 
 from __future__ import annotations
@@ -9,18 +12,23 @@ import json
 import math
 import re
 import sqlite3
+import uuid
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode
 
 import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from monitor import drift
-from monitor.source import ANSI
+from monitor import export as exporter
 from monitor.portal.charts import window_chart
+from monitor.review import (CAPTURE_LABELS, VERDICTS, ReviewError, ReviewLog, alert_state, capture_state,
+                            check_alert_action, check_capture_review)
+from monitor.source import ANSI
+from monitor.store import Store
 
 TEMPLATES = Path(__file__).parent / "templates"
 PAGE_SIZE = 50
@@ -28,8 +36,11 @@ ZONE_BGR = {"accepted": (60, 170, 40), "doubt": (0, 150, 255), "low": (40, 40, 2
 STATUSES = ["ok", "no_detections", "inference_error", "invalid_input"]
 
 
-def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
+def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "datos/runs") -> FastAPI:
     root = Path(root).resolve()
+    Store(db_path).close()                                  # crea/migra el esquema (p. ej. la tabla reviews)
+    reviews = ReviewLog(root / runs_dir, lambda: Store(db_path))
+    exports_log = root / Path(runs_dir).parent / "exportaciones.jsonl"   # registro de descargas (F3)
     db_uri = Path(db_path).resolve().as_uri() + "?mode=ro"  # solo lectura; la ruta puede tener espacios
     app = FastAPI(title="Proyecto 6: Centro de monitoreo de computer vision")
     templates = Jinja2Templates(directory=str(TEMPLATES))
@@ -109,6 +120,62 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
     def run_options() -> list[dict]:
         return rows("SELECT run_id, label FROM runs ORDER BY started_at DESC")
 
+    # -- revisión humana (F2) ---------------------------------------------------
+    def history(target_type: str, target_id: str) -> list[dict]:
+        return [json.loads(r["record_json"]) for r in rows(
+            "SELECT record_json FROM reviews WHERE target_type = ? AND target_id = ? ORDER BY at, review_id",
+            (target_type, target_id))]
+
+    def histories(target_type: str, run_id: str = "") -> dict[str, list[dict]]:
+        out: dict[str, list[dict]] = {}
+        sql = "SELECT target_id, record_json FROM reviews WHERE target_type = ?"
+        params: list = [target_type]
+        if run_id:
+            sql += " AND run_id = ?"; params.append(run_id)
+        for r in rows(sql + " ORDER BY at, review_id", params):
+            out.setdefault(r["target_id"], []).append(json.loads(r["record_json"]))
+        return out
+
+    async def form_data(request: Request) -> dict:
+        if request.headers.get("content-type", "").startswith("application/json"):
+            body = await request.json()
+            return body if isinstance(body, dict) else {}
+        try:   # un navegador envía UTF-8; texto mal codificado se rechaza en vez de guardarse con "�"
+            raw = (await request.body()).decode("utf-8")
+            return {k: v[-1] for k, v in parse_qs(raw, keep_blank_values=True, errors="strict").items()}
+        except UnicodeDecodeError:
+            raise ReviewError(422, "El formulario no viene en UTF-8: el texto se guardaría alterado.")
+
+    def submit_alert(alert_id: str, form: dict):
+        def load(store):
+            al = store.alert(alert_id)
+            if al is None:
+                raise ReviewError(404, f"Alerta no encontrada: {alert_id}")
+            return al, store.reviews_for("alert", alert_id)
+        return reviews.submit(form.get("request_id"), load, lambda al, h: check_alert_action(al, h, form))
+
+    def submit_capture(event_id: str, form: dict):
+        def load(store):
+            ev = store.event(event_id)
+            if ev is None:
+                raise ReviewError(404, f"Evento no encontrado: {event_id}")
+            return ev, store.reviews_for("event", event_id)
+        return reviews.submit(form.get("request_id"), load, lambda ev, h: check_capture_review(ev, h, form))
+
+    def review_ctx(request: Request, target_type: str, target_id: str, msg: str = "", error: str = "",
+                   form: dict | None = None) -> dict:
+        h = history(target_type, target_id)
+        return {"history": h, "rstate": alert_state(h) if target_type == "alert" else capture_state(h),
+                "verdicts": VERDICTS, "labels": CAPTURE_LABELS, "msg": msg, "error": error, "form": form or {},
+                "request_id": uuid.uuid4().hex, "operator": (form or {}).get("operator") or request.cookies.get("operador", "")}
+
+    def done(url: str, rec: dict, new: bool) -> RedirectResponse:
+        text = (f"Registrado: {rec['action']} por {rec['operator']} ({rec['review_id']})" if new else
+                f"Este envío ya estaba registrado ({rec['review_id']}); no se duplicó.")
+        resp = RedirectResponse(f"{url}?{urlencode({'msg': text})}#revision", status_code=303)
+        resp.set_cookie("operador", rec["operator"], max_age=30 * 86400, samesite="lax")
+        return resp
+
     # -- vistas HTML ------------------------------------------------------------
     @app.get("/", include_in_schema=False)
     def home():
@@ -131,34 +198,160 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
             "runs": run_options(), "statuses": STATUSES, "reasons": reasons,
         })
 
-    @app.get("/eventos/{event_id}", response_class=HTMLResponse)
-    def event_page(request: Request, event_id: str, low: bool = False):
+    def render_event(request: Request, event_id: str, low: bool = False, status_code: int = 200,
+                     **review) -> HTMLResponse:
         ev = event_or_404(event_id)
         return templates.TemplateResponse(request, "event.html", {
             "ev": ev, "alerts": alerts_for_event(event_id), "show_low": low,
             "run": one("SELECT run_id, label FROM runs WHERE run_id = ?", (ev["run_id"],)),
-        })
+            **review_ctx(request, "event", event_id, **review),
+        }, status_code=status_code)
+
+    @app.get("/eventos/{event_id}", response_class=HTMLResponse)
+    def event_page(request: Request, event_id: str, low: bool = False, msg: str = ""):
+        return render_event(request, event_id, low=low, msg=msg)
+
+    @app.post("/eventos/{event_id}/revision", response_class=HTMLResponse)
+    async def capture_review_form(request: Request, event_id: str):
+        form: dict = {}
+        try:
+            form = await form_data(request)
+            rec, new = submit_capture(event_id, form)
+        except ReviewError as e:
+            if e.status == 404:
+                raise HTTPException(404, e.message)
+            return render_event(request, event_id, status_code=e.status, error=e.message, form=form)
+        return done(f"/eventos/{event_id}", rec, new)
 
     @app.get("/alertas", response_class=HTMLResponse)
-    def alerts_page(request: Request, run_id: str = "", severity: str = "", rule_id: str = "", status: str = ""):
+    def alerts_page(request: Request, run_id: str = "", severity: str = "", rule_id: str = "", status: str = "",
+                    revision: str = ""):
         items = query_alerts(run_id, severity, rule_id, status)
+        hs = histories("alert")
         for a in items:
             a["n_events"] = len(json.loads(a["event_ids_json"]))
+            a["review"] = alert_state(hs.get(a["alert_id"], []))
+        if revision:
+            items = [a for a in items if a["review"]["state"] == revision]
         return templates.TemplateResponse(request, "alerts.html", {
             "items": items, "runs": run_options(),
             "rules": [r["rule_id"] for r in rows("SELECT DISTINCT rule_id FROM alerts ORDER BY 1")],
-            "f": {"run_id": run_id, "severity": severity, "rule_id": rule_id, "status": status},
+            "f": {"run_id": run_id, "severity": severity, "rule_id": rule_id, "status": status, "revision": revision},
         })
 
-    @app.get("/alertas/{alert_id}", response_class=HTMLResponse)
-    def alert_page(request: Request, alert_id: str):
+    def render_alert(request: Request, alert_id: str, status_code: int = 200, **review) -> HTMLResponse:
         al = alert_or_404(alert_id)
         ids = al["event_ids"]
         evs = rows(
             f"""SELECT event_id, seq, captured_at, status, n_detections, n_accepted, n_doubt, n_low,
                        low_ratio, image_ref, error FROM events WHERE event_id IN ({",".join("?" * len(ids))})
                 ORDER BY captured_at""", ids) if ids else []
-        return templates.TemplateResponse(request, "alert.html", {"al": al, "events": evs})
+        caps = histories("event", al["run_id"] or "")
+        for e in evs:
+            e["review"] = capture_state(caps.get(e["event_id"], []))
+        return templates.TemplateResponse(request, "alert.html", {"al": al, "events": evs,
+                                                                  **review_ctx(request, "alert", alert_id, **review)},
+                                          status_code=status_code)
+
+    @app.get("/alertas/{alert_id}", response_class=HTMLResponse)
+    def alert_page(request: Request, alert_id: str, msg: str = ""):
+        return render_alert(request, alert_id, msg=msg)
+
+    @app.post("/alertas/{alert_id}/revision", response_class=HTMLResponse)
+    async def alert_review_form(request: Request, alert_id: str):
+        form: dict = {}
+        try:
+            form = await form_data(request)
+            rec, new = submit_alert(alert_id, form)
+        except ReviewError as e:
+            if e.status == 404:
+                raise HTTPException(404, e.message)
+            return render_alert(request, alert_id, status_code=e.status, error=e.message, form=form)
+        return done(f"/alertas/{alert_id}", rec, new)
+
+    @app.get("/revision", response_class=HTMLResponse)
+    def review_queue(request: Request, run_id: str = "", estado: str = "", reason: str = "", label: str = ""):
+        """Cola de revisión: capturas de una ejecución con su etiqueta vigente y alertas por revisar."""
+        runs = rows("""SELECT r.run_id, r.label, COUNT(e.event_id) AS n_images FROM runs r
+                       JOIN events e ON e.run_id = r.run_id AND e.image_ref IS NOT NULL
+                       GROUP BY r.run_id ORDER BY r.started_at DESC""")
+        if not runs:
+            return templates.TemplateResponse(request, "review.html", {"runs": [], "f": {}, "items": [], "alerts": []})
+        run_id = run_id or runs[0]["run_id"]
+        if not any(r["run_id"] == run_id for r in runs):
+            raise HTTPException(404, f"Ejecución sin capturas o inexistente: {run_id}")
+        evs = rows("""SELECT event_id, seq, captured_at, capture_reason, n_detections, n_low, low_ratio FROM events
+                      WHERE run_id = ? AND image_ref IS NOT NULL ORDER BY seq""", (run_id,))
+        caps = histories("event", run_id)
+        for e in evs:
+            e["review"] = capture_state(caps.get(e["event_id"], []))
+        counts = {"total": len(evs), "revisadas": sum(e["review"]["state"] == "revisada" for e in evs)}
+        counts["por_etiqueta"] = {k: sum(e["review"]["label"] == k for e in evs) for k in CAPTURE_LABELS}
+        items = [e for e in evs
+                 if (not estado or e["review"]["state"] == estado) and (not reason or e["capture_reason"] == reason)
+                 and (not label or e["review"]["label"] == label)]
+        hs = histories("alert", run_id)
+        alerts = rows("SELECT alert_id, rule_id, severity, status FROM alerts WHERE run_id = ? ORDER BY timestamp",
+                      (run_id,))
+        for a in alerts:
+            a["review"] = alert_state(hs.get(a["alert_id"], []))
+        return templates.TemplateResponse(request, "review.html", {
+            "runs": runs, "items": items, "counts": counts, "alerts": alerts, "labels": CAPTURE_LABELS,
+            "reasons": sorted({e["capture_reason"] for e in evs if e["capture_reason"]}),
+            "f": {"run_id": run_id, "estado": estado, "reason": reason, "label": label}})
+
+    # -- exportación (F3) ------------------------------------------------------
+    def export_params(request: Request) -> dict:
+        return {k: v for k, v in request.query_params.items() if k != "preview"}
+
+    @app.get("/exportar", response_class=HTMLResponse)
+    def export_page(request: Request):
+        params = export_params(request)
+        ctx = {"runs": run_options(), "q": params, "levels": exporter.LEVELS, "formats": exporter.FORMATS,
+               "statuses": exporter.STATUSES, "zones": exporter.ZONES, "log": exporter.read_log(exports_log),
+               "reasons": [r["capture_reason"] for r in rows(
+                   "SELECT DISTINCT capture_reason FROM events WHERE capture_reason IS NOT NULL ORDER BY 1")],
+               "error": "", "meta": None, "preview": [], "qs": urlencode(params)}
+        if "preview" not in request.query_params:
+            return templates.TemplateResponse(request, "export.html", ctx)
+        try:
+            spec = exporter.ExportSpec.from_params(params)
+            _, meta, out = exporter.build(db_path, spec)
+        except exporter.ExportError as e:
+            return templates.TemplateResponse(request, "export.html", {**ctx, "error": e.message}, status_code=e.status)
+        return templates.TemplateResponse(request, "export.html", {**ctx, "meta": meta,
+                                                                   "preview": out[:exporter.PREVIEW_ROWS]})
+
+    def export_file(request: Request, origin: str):
+        spec = exporter.ExportSpec.from_params(export_params(request))
+        data, meta, _ = exporter.build(db_path, spec)
+        exporter.log_export(exports_log, meta, origin)
+        media = "text/csv; charset=utf-8" if spec.formato == "csv" else "application/x-ndjson; charset=utf-8"
+        return Response(data, media_type=media, headers={
+            "Content-Disposition": f'attachment; filename="{meta["filename"]}"',
+            "X-Export-Rows": str(meta["filas"]), "X-Export-SHA256": meta["sha256"]})
+
+    @app.get("/exportar/descargar")
+    def export_download(request: Request):
+        try:
+            return export_file(request, "portal")
+        except exporter.ExportError as e:
+            return templates.TemplateResponse(request, "export.html", {
+                "runs": run_options(), "q": export_params(request), "levels": exporter.LEVELS,
+                "formats": exporter.FORMATS, "statuses": exporter.STATUSES, "zones": exporter.ZONES,
+                "reasons": [], "log": exporter.read_log(exports_log), "error": e.message, "meta": None,
+                "preview": [], "qs": ""}, status_code=e.status)
+
+    @app.get("/api/exportar")
+    def api_export(request: Request):
+        try:
+            return export_file(request, "api")
+        except exporter.ExportError as e:
+            return JSONResponse({"detail": e.message}, status_code=e.status)
+
+    @app.get("/api/exportaciones")
+    def api_exports_log(limit: int = Query(20, ge=1, le=500)):
+        return {"items": exporter.read_log(exports_log, limit)}
 
     @app.get("/runs", response_class=HTMLResponse)
     def runs_page(request: Request):
@@ -193,9 +386,11 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
             # los registros anteriores al filtro pueden traer códigos de color ANSI de yt-dlp
             h["detail"] = {k: ANSI.sub("", v) if isinstance(v, str) else v
                            for k, v in json.loads(h.pop("detail_json")).items()}
+        versions = rows("SELECT model_ref, COUNT(*) AS n, MIN(seq) AS first_seq, MAX(seq) AS last_seq FROM events "
+                        "WHERE run_id = ? GROUP BY model_ref ORDER BY first_seq", (run_id,))
         return templates.TemplateResponse(request, "run.html", {"r": r, "m": manifest, "s": stats,
                                                                 "windows": windows, "alerts": alerts,
-                                                                "health": health})
+                                                                "health": health, "versions": versions})
 
     def chart_data(run_id: str) -> dict:
         """Series por ventana de una ejecución: proporción baja, media y W1 frente a la referencia."""
@@ -252,8 +447,8 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
                                                                        "d": d})
         lr, ms, w = d["low_ratio"], d["mean_score"], d["w1"]
 
-        def only(points, rule):     # cada gráfica marca las alertas de su regla y las de la fuente
-            keep = lambda r: r.startswith("fuente-") or (rule is not None and r == rule["rule_id"])
+        def only(points, rule):     # cada gráfica marca las alertas de su regla, de la fuente y de versión
+            keep = lambda r: r.startswith(("fuente-", "version-")) or (rule is not None and r == rule["rule_id"])
             return [{**p, "alerts": [r for r in p["alerts"] if keep(r)]} for p in points]
 
         lr["points"] = only(lr["points"], lr["rule"])
@@ -343,6 +538,46 @@ def create_app(db_path: str | Path, root: str | Path = ".") -> FastAPI:
     @app.get("/api/alertas/{alert_id}")
     def api_alert(alert_id: str):
         return alert_or_404(alert_id)
+
+    @app.get("/api/alertas/{alert_id}/revision")
+    def api_alert_review(alert_id: str):
+        al = alert_or_404(alert_id)
+        h = history("alert", alert_id)
+        return {"alert_id": alert_id, "alert_status": al["status"], "review": alert_state(h), "history": h}
+
+    @app.post("/api/alertas/{alert_id}/revision")
+    async def api_alert_review_post(request: Request, alert_id: str):
+        try:
+            rec, new = submit_alert(alert_id, await form_data(request))
+        except ReviewError as e:
+            return JSONResponse({"detail": e.message}, status_code=e.status)
+        return JSONResponse({"record": rec, "duplicate": not new, "review": alert_state(history("alert", alert_id))},
+                            status_code=201 if new else 200)
+
+    @app.get("/api/eventos/{event_id}/revision")
+    def api_capture_review(event_id: str):
+        ev = event_or_404(event_id)
+        h = history("event", event_id)
+        return {"event_id": event_id, "image_ref": ev["image_ref"], "review": capture_state(h), "history": h}
+
+    @app.post("/api/eventos/{event_id}/revision")
+    async def api_capture_review_post(request: Request, event_id: str):
+        try:
+            rec, new = submit_capture(event_id, await form_data(request))
+        except ReviewError as e:
+            return JSONResponse({"detail": e.message}, status_code=e.status)
+        return JSONResponse({"record": rec, "duplicate": not new, "review": capture_state(history("event", event_id))},
+                            status_code=201 if new else 200)
+
+    @app.get("/api/revisiones")
+    def api_reviews(run_id: str = "", target_type: str = ""):
+        where, params = [], []
+        for col, val in (("run_id", run_id), ("target_type", target_type)):
+            if val:
+                where.append(f"{col} = ?"); params.append(val)
+        w = ("WHERE " + " AND ".join(where)) if where else ""
+        items = [json.loads(r["record_json"]) for r in rows(f"SELECT record_json FROM reviews {w} ORDER BY at, review_id", params)]
+        return {"total": len(items), "items": items}
 
     @app.get("/api/runs")
     def api_runs():

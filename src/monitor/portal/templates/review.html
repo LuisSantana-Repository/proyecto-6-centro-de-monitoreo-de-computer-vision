@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Revisión{% endblock %}
+{% block content %}
+<h1>Revisión humana</h1>
+{% if not runs %}
+<div class="empty">No hay ejecuciones con capturas para revisar.</div>
+{% else %}
+<div class="card">
+<form class="filters" method="get">
+  <label>Ejecución
+    <select name="run_id">{% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if f.run_id == r.run_id }}>{{ r.run_id }} ({{ r.n_images }})</option>{% endfor %}</select></label>
+  <label>Estado
+    <select name="estado"><option value="">Todas</option>
+    {% for s in ['pendiente', 'revisada'] %}<option {{ 'selected' if f.estado == s }}>{{ s }}</option>{% endfor %}</select></label>
+  <label>Motivo de captura
+    <select name="reason"><option value="">Todos</option>
+    {% for r in reasons %}<option {{ 'selected' if f.reason == r }}>{{ r }}</option>{% endfor %}</select></label>
+  <label>Etiqueta
+    <select name="label"><option value="">Todas</option>
+    {% for k in labels %}<option {{ 'selected' if f.label == k }}>{{ k }}</option>{% endfor %}</select></label>
+  <button>Filtrar</button> <a href="/revision?run_id={{ f.run_id }}">Limpiar</a>
+</form>
+</div>
+
+<div class="grid">
+<div>
+  <h2>Capturas ({{ items|length }} de {{ counts.total }})</h2>
+  {% if items %}
+  <div class="qgrid">
+  {% for e in items %}
+    <div class="qitem">
+      <a href="/eventos/{{ e.event_id }}#revision"><img src="/imagen/{{ e.event_id }}" alt="frame {{ e.seq }}" loading="lazy"></a>
+      #{{ e.seq }} · {{ e.capture_reason }} · prop. baja {{ '%.2f'|format(e.low_ratio) if e.low_ratio is not none else '—' }}<br>
+      {% if e.review.label %}<span class="badge rv-done">{{ e.review.label }}</span> <span class="muted">{{ e.review.reviewed_by }}</span>
+      {% else %}<a href="/eventos/{{ e.event_id }}#revision"><span class="badge rv-pendiente">pendiente</span></a>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">Ninguna captura con estos filtros.</div>
+  {% endif %}
+</div>
+<div>
+  <div class="card"><b>Avance de esta ejecución</b>
+    <dl class="tight">
+      <dt>Capturas revisadas</dt><dd>{{ counts.revisadas }} de {{ counts.total }}</dd>
+      {% for k, n in counts.por_etiqueta.items() if n %}<dt>{{ k }}</dt><dd>{{ n }}</dd>{% endfor %}
+    </dl>
+  </div>
+  <div class="card"><b>Alertas de esta ejecución</b>
+    {% if alerts %}
+    <table class="hist"><thead><tr><th>Alerta</th><th>Regla</th><th>Revisión</th></tr></thead><tbody>
+    {% for a in alerts %}
+      <tr><td class="mono"><a href="/alertas/{{ a.alert_id }}#revision">{{ a.alert_id.split('-')[-1] }}</a></td>
+          <td class="mono">{{ a.rule_id }}<br><span class="muted">{{ a.status }}</span></td>
+          <td><span class="badge rv-{{ a.review.state }}">{{ a.review.state }}</span>{% if a.review.verdict %}<br><span class="muted">{{ a.review.verdict }}</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody></table>
+    {% else %}<p class="muted">Sin alertas.</p>{% endif %}
+  </div>
+  <p class="muted small">JSON: <a href="/api/revisiones?run_id={{ f.run_id }}">/api/revisiones?run_id={{ f.run_id }}</a></p>
+</div>
+</div>
+{% endif %}
+{% endblock %}

@@ -4,28 +4,38 @@ Sirve para verificar (M5 / R7.2) que las métricas por ventana y las alertas se 
 datos primarios con la configuración guardada en el manifest.
 
 Uso: uv run python -m monitor.evaluate datos/runs/<run_id> [...]
+     uv run python -m monitor.evaluate datos/runs/<run_s2> --sin-reaccion-version   # contrafactual de S2
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 
-from monitor.alerts import SourceHealthMonitor, WindowEvaluator
+from monitor.alerts import ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
 from monitor.events import InferenceEvent
 
 
-def recompute(run_dir: Path) -> tuple[list[dict], list[dict]]:
-    """Ventanas y alertas (reglas de confianza por ventana + regla de salud de la fuente, si existe)."""
+def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[list[dict], list[dict]]:
+    """Ventanas y alertas (reglas de confianza por ventana + reglas de la fuente y de versión, si existen).
+
+    `without_version_reaction` (contrafactual del escenario S2): recalcula como si las ventanas con eventos
+    de otra versión del modelo se evaluaran contra la referencia (`model_version.exclude_windows: false`)."""
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
-    args = (manifest["config"], manifest["config_ref"], manifest["run_id"])
-    ev, health = WindowEvaluator(*args), SourceHealthMonitor(*args)
+    cfg = manifest["config"]
+    if without_version_reaction and cfg.get("model_version"):
+        cfg = copy.deepcopy(cfg)
+        cfg["model_version"]["exclude_windows"] = False
+    args = (cfg, manifest["config_ref"], manifest["run_id"])
+    ev, health, version = WindowEvaluator(*args), SourceHealthMonitor(*args), ModelVersionMonitor(*args)
     windows, alerts = [], []
     results = []
     for line in open(run_dir / "events.jsonl", encoding="utf-8"):
         e = InferenceEvent.model_validate_json(line)
-        alerts += health.add(e)[0]        # mismo orden que run.py: regla de la fuente, luego ventana
+        alerts += health.add(e)[0]        # mismo orden que run.py: fuente, versión, luego ventana
+        alerts += version.add(e)[0]
         results.append(ev.add(e))
     results.append(ev.flush())
     window_alerts = []
@@ -39,10 +49,20 @@ def recompute(run_dir: Path) -> tuple[list[dict], list[dict]]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("runs", nargs="+")
+    ap.add_argument("--sin-reaccion-version", action="store_true",
+                    help="contrafactual de S2: evalúa también las ventanas con otra versión del modelo (no compara)")
     args = ap.parse_args()
     ok_all = True
     for r in args.runs:
         r = Path(r)
+        if args.sin_reaccion_version:
+            windows, alerts = recompute(r, without_version_reaction=True)
+            print(f"{r.name} (contrafactual: sin excluir ventanas de otra versión; no se compara con lo registrado)")
+            for w in windows:
+                print(f"   ventana {w['idx']:3d} {w['state']:15s} low_ratio={w['low_ratio']} mean_score={w['mean_score']} "
+                      f"condiciones={w['conditions']}")
+            print(f"   alertas de confianza: {[a['rule_id'] for a in alerts if a['rule_id'] != 'version-modelo-v1'] or 'ninguna'}")
+            continue
         windows, alerts = recompute(r)
         logged_w = [json.loads(l) for l in open(r / "windows.jsonl", encoding="utf-8")] if (r / "windows.jsonl").exists() else []
         logged_a = [json.loads(l) for l in open(r / "alerts.jsonl", encoding="utf-8")] if (r / "alerts.jsonl").exists() else []

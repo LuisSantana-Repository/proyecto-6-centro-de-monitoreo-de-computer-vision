@@ -105,9 +105,9 @@ def window_chart(title: str, points: list[dict], threshold: float | None, op: st
     out.append("</svg>")
     alerts = [f'ventana {p["idx"]}: {", ".join(p["alerts"])}' for p in points if p.get("alerts")]
     legend = ('<p class="muted chart-key">Punto relleno: dentro del umbral · punto hueco: cruza el umbral · '
-              'hueco en la línea: ventana sin evidencia suficiente · '
+              'hueco en la línea: ventana no evaluada (su estado está rotulado) · '
               + ('▲ alerta abierta en esa ventana' + (f' ({escape("; ".join(alerts))})' if alerts else " (ninguna)")
                  if has_rule else "sin regla de alerta propia: el umbral es de referencia"
-                 + (f' · ▲ alerta de la fuente ({escape("; ".join(alerts))})' if alerts else ""))
+                 + (f' · ▲ alerta de la fuente o de versión ({escape("; ".join(alerts))})' if alerts else ""))
               + '.</p>')
     return head + "".join(out) + legend + "</figure>"

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Exportar{% endblock %}
+{% block content %}
+<h1>Exportar eventos</h1>
+{% if error %}<div class="flash err" role="alert"><b>No se puede exportar:</b> {{ error }}</div>{% endif %}
+<div class="card">
+<form class="filters" method="get" action="/exportar">
+  <input type="hidden" name="preview" value="1">
+  <label>Ejecución
+    <select name="run_id"><option value="">Todas</option>
+    {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if q.run_id == r.run_id }}>{{ r.run_id }}</option>{% endfor %}</select></label>
+  <label>Estado
+    <select name="status"><option value="">Todos</option>
+    {% for s in statuses %}<option {{ 'selected' if q.status == s }}>{{ s }}</option>{% endfor %}</select></label>
+  <label>Motivo de captura
+    <select name="reason"><option value="">Todos</option>
+    {% for r in reasons %}<option {{ 'selected' if q.reason == r }}>{{ r }}</option>{% endfor %}</select></label>
+  <label>Solo con imagen <input type="checkbox" name="with_image" value="true" {{ 'checked' if q.with_image }}></label>
+  <label>Desde (UTC) <input name="since" value="{{ q.since or '' }}" placeholder="2026-11-08T16:33:00Z" size="22"></label>
+  <label>Hasta (UTC) <input name="until" value="{{ q.until or '' }}" size="22"></label>
+  <label>Modelo (model_ref) <input name="model_ref" value="{{ q.model_ref or '' }}" size="26"></label>
+  <label>Eventos de la alerta <input name="alert_id" value="{{ q.alert_id or '' }}" size="30"></label>
+  <label>Prop. baja ≥ <input name="min_low_ratio" value="{{ q.min_low_ratio or '' }}" size="5"></label>
+  <label>Prop. baja ≤ <input name="max_low_ratio" value="{{ q.max_low_ratio or '' }}" size="5"></label>
+  <label>Clase <input name="class_name" value="{{ q.class_name or '' }}" placeholder="person" size="8"></label>
+  <label>Zona
+    <select name="zone"><option value="">Todas</option>
+    {% for z in zones %}<option {{ 'selected' if q.zone == z }}>{{ z }}</option>{% endfor %}</select></label>
+  <label>Puntuación ≥ <input name="min_score" value="{{ q.min_score or '' }}" size="5"></label>
+  <label>Una fila por
+    <select name="nivel">{% for l in levels %}<option {{ 'selected' if (q.nivel or 'evento') == l }}>{{ l }}</option>{% endfor %}</select></label>
+  <label>Formato
+    <select name="formato">{% for f in formats %}<option {{ 'selected' if (q.formato or 'csv') == f }}>{{ f }}</option>{% endfor %}</select></label>
+  <button>Vista previa</button> <a href="/exportar">Limpiar</a>
+</form>
+<p class="muted small">Clase, zona y puntuación filtran detecciones: con una fila por evento, dejan los eventos que tengan al menos una detección que cumpla.</p>
+</div>
+
+{% if meta %}
+<div class="card">
+  <b>{{ meta.filas }} {{ 'eventos' if meta.nivel == 'evento' else 'detecciones' }}</b>
+  <span class="muted">· {{ meta.formato|upper }} · {{ meta.bytes }} bytes · sha256 <span class="mono">{{ meta.sha256[:16] }}…</span></span>
+  {% if meta.filas %}
+    <p><a class="button" href="/exportar/descargar?{{ qs }}"><button type="button">Descargar {{ meta.filename }}</button></a>
+       <span class="muted small">· también por API: <span class="mono">/api/exportar?{{ qs }}</span></span></p>
+  {% else %}
+    <div class="empty">Ningún {{ 'evento' if meta.nivel == 'evento' else 'resultado' }} con estos filtros: no hay nada que descargar.
+      (La API devuelve un archivo válido con solo el encabezado y <span class="mono">X-Export-Rows: 0</span>.)</div>
+  {% endif %}
+  <p class="muted small">Filtros: <span class="mono">{{ meta.filtros|tojson }}</span>. El mismo archivo se recalcula y verifica con
+    <span class="mono">uv run python -m monitor.export … --verificar &lt;archivo&gt;</span>.</p>
+  {% if preview %}
+  <h3>Primeras {{ preview|length }} filas</h3>
+  <div style="overflow:auto"><table class="hist">
+    <thead><tr>{% for c in meta.columnas %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in preview %}<tr>{% for c in meta.columnas %}<td class="mono">{{ r[c] if r[c] is not none else '' }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</div>
+{% endif %}
+
+<h2>Descargas registradas</h2>
+{% if log %}
+<table class="hist">
+<thead><tr><th>Momento (UTC)</th><th>Origen</th><th>Archivo</th><th class="num">Filas</th><th>SHA-256</th><th>Filtros</th></tr></thead>
+<tbody>{% for l in log %}
+<tr><td class="mono">{{ l.at }}</td><td>{{ l.origen }}</td><td class="mono">{{ l.filename }}</td><td class="num">{{ l.filas }}</td>
+    <td class="mono">{{ l.sha256[:16] }}…</td><td class="mono">{{ l.filtros|tojson }}</td></tr>
+{% endfor %}</tbody></table>
+<p class="muted small">Registro: <span class="mono">datos/exportaciones.jsonl</span> · JSON: <a href="/api/exportaciones">/api/exportaciones</a></p>
+{% else %}<p class="muted">Todavía no hay descargas.</p>{% endif %}
+{% endblock %}

@@ -47,7 +47,8 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`evaluate.py`](src/monitor/evaluate.py) | Recalcula ventanas y alertas desde `events.jsonl` y las compara con lo registrado |
 | [`metrics.py`](src/monitor/metrics.py) | Métricas base G1–G7 y adicionales M2–M3 por ejecución y por ventana |
 | [`drift.py`](src/monitor/drift.py) | Métrica adicional M1: W1 de las puntuaciones frente a la referencia |
-| [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana |
+| [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana, revisión humana |
+| [`review.py`](src/monitor/review.py) | Extra F2: estados y reglas de la revisión humana de alertas y capturas (`revisiones.jsonl` + tabla `reviews`) |
 
 Documentación de decisiones:
 - [`docs/umbrales.md`](docs/umbrales.md): umbrales, zonas, referencia, ventanas y reglas.
@@ -82,8 +83,10 @@ configuración, `cfg-0b5e664b118c` en las evidencias) y `model_ref` (`yolo11n@sh
 | Métricas G1–G7 (+ adicionales M1–M3) | `uv run python -m monitor.metrics datos/runs/<run_id> --out-dir evidencias/metricas` |
 | Desplazamiento de la distribución (M1) | `uv run python -m monitor.drift datos/runs/<run_id>` (referencia: `--build <ref1> <ref2>`) |
 | Escenario S1: corte de la fuente | `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --inject-outage 180:90 ...` |
+| Escenario S2: cambio de versión del modelo | `uv run python -m monitor.run --config config/escenario-version.yaml --swap-model yolo11s:150:210 ...` (pesos: `monitor.download_model --config config/escenario-version.yaml`) |
 | Importar runs a SQLite (idempotente) | `uv run python -m monitor.ingest [datos/runs/<run_id> ...]` |
 | Portal de eventos y alertas | `uv run python -m monitor.portal` → http://127.0.0.1:8000 |
+| Exportar eventos o detecciones (mismos bytes que `/exportar`) | `uv run python -m monitor.export --run-id <id> [--nivel deteccion] [--formato jsonl] --out f.csv` · verificar: `... --verificar f.csv` |
 
 Cada ejecución escribe en `datos/runs/<run_id>/`:
 - `events.jsonl`: registro primario, un evento por frame;
@@ -184,10 +187,13 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | ID | Extra | Nivel solicitado |
 |---|---|---|
 | S1 | Escenario: interrupción y recuperación de la fuente ([`docs/escenario-s1.md`](docs/escenario-s1.md)) | 10 |
+| S2 | Escenario: cambio de versión del modelo no declarado ([`docs/escenario-s2.md`](docs/escenario-s2.md)) | 10 |
 | M1 | Métrica: desplazamiento de la distribución de puntuaciones frente a la referencia (W1) | 8 |
 | M2 | Métrica: latencia de punta a punta (frame → evento) | 5 |
 | M3 | Métrica: tiempo de recuperación de la fuente y disponibilidad | 5 |
 | F1 | Funcionalidad: gráficas por ventana en el portal (`/graficas`) | 10 |
+| F2 | Funcionalidad: revisión humana de alertas y capturas (`/revision`) | 15 |
+| F3 | Funcionalidad: exportación de eventos y detecciones con procedencia y verificación (`/exportar`) | 10 |
 
 **S1 en resumen.** Tres variantes con la misma regla `fuente-interrumpida-v1`. En las tres se abre
 una alerta crítica, que se resuelve sola, la ventana del corte queda `insuficiente` y
@@ -198,3 +204,13 @@ una alerta crítica, que se resuelve sola, la ventana del corte queda `insuficie
 | S1-R | `20261108T193149Z-s1-replay-interrupcion` | corte inyectado de 90 s sobre la grabación de C1 | 90.0 s |
 | S1-V | `20261108T222800Z-s1-vivo-interrupcion` | corte inyectado de 90 s en vivo | 92.0 s |
 | S1-W | `20261108T224433Z-s1-wifi` | WiFi apagado de verdad (falla de DNS) | 84.6 s |
+
+**S2 en resumen** (`20261108T232126Z-s2-cambio-version`):
+- **Qué pasa.** Un despliegue usa `yolo11s` en lugar de `yolo11n` durante 210 s sin cambiar la
+  configuración.
+- **Detección.** La regla `version-modelo-v1` abre una alerta crítica a los 3 eventos y la resuelve
+  después de la reversión.
+- **Reacción.** Las ventanas con otra versión quedan `otra_version` y no se interpretan.
+- **Verificación.** Después de la reversión, las detecciones son idénticas a las de C1.
+- **Por qué hace falta.** Sin la regla nada lo habría notado: con `yolo11s` las reglas de confianza
+  dan `normal` y W1 queda dentro del umbral.

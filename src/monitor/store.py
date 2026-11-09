@@ -107,6 +107,23 @@ CREATE TABLE IF NOT EXISTS source_events (
     detail_json TEXT NOT NULL,
     PRIMARY KEY (run_id, at, type)
 );
+CREATE TABLE IF NOT EXISTS reviews (
+    review_id TEXT PRIMARY KEY,
+    request_id TEXT NOT NULL UNIQUE,
+    at TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,          -- alert | event
+    target_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    operator TEXT NOT NULL,
+    note TEXT,
+    verdict TEXT,
+    label TEXT,
+    state_before TEXT,
+    state_after TEXT,
+    record_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_reviews_target ON reviews(target_type, target_id, at);
 CREATE TABLE IF NOT EXISTS ingest_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     at TEXT NOT NULL,
@@ -197,7 +214,8 @@ class Store:
 
     UPDATABLE = ("status", "resolved_at", "resolved_by_window", "n_windows", "window_end", "suppressed_repeats",
                  "resolution_json")
-    RESOLUTION = ("n_invalid", "downtime_s", "first_ok_event_id")   # detalle de la resolución (regla de la fuente)
+    # detalle de la resolución: regla de la fuente (S1) y regla de versión (S2)
+    RESOLUTION = ("n_invalid", "downtime_s", "n_mismatch", "duration_s", "reported_model_refs", "first_ok_event_id")
 
     def update_alert(self, upd: dict) -> None:
         res = {k: upd[k] for k in self.RESOLUTION if k in upd}
@@ -228,6 +246,35 @@ class Store:
         self.con.execute("INSERT OR IGNORE INTO source_events VALUES (?,?,?,?)",
                          (rec["run_id"], rec["at"], rec["type"], json.dumps(detail, ensure_ascii=False)))
         self.con.commit()
+
+    def insert_review(self, rec: dict) -> bool:
+        """Revisión humana (F2). Idempotente por review_id / request_id."""
+        cur = self.con.execute(
+            "INSERT OR IGNORE INTO reviews VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (rec["review_id"], rec["request_id"], rec["at"], rec["run_id"], rec["target_type"], rec["target_id"],
+             rec["action"], rec["operator"], rec.get("note"), rec.get("verdict"), rec.get("label"),
+             rec.get("state_before"), rec.get("state_after"), json.dumps(rec, ensure_ascii=False)))
+        self.con.commit()
+        return cur.rowcount == 1
+
+    def review_by_request(self, request_id: str) -> dict | None:
+        r = self.con.execute("SELECT record_json FROM reviews WHERE request_id = ?", (request_id,)).fetchone()
+        return json.loads(r["record_json"]) if r else None
+
+    def reviews_for(self, target_type: str, target_id: str) -> list[dict]:
+        return [json.loads(r["record_json"]) for r in self.con.execute(
+            "SELECT record_json FROM reviews WHERE target_type = ? AND target_id = ? ORDER BY at, review_id",
+            (target_type, target_id))]
+
+    def alert(self, alert_id: str) -> dict | None:
+        r = self.con.execute("SELECT alert_id, run_id, rule_id, status, config_ref FROM alerts WHERE alert_id = ?",
+                             (alert_id,)).fetchone()
+        return dict(r) if r else None
+
+    def event(self, event_id: str) -> dict | None:
+        r = self.con.execute("SELECT event_id, run_id, image_ref, config_ref FROM events WHERE event_id = ?",
+                             (event_id,)).fetchone()
+        return dict(r) if r else None
 
     def apply_alert_log(self, record: dict) -> None:
         """Aplica una línea de alerts.jsonl: {"type": "alert"|"update", ...}."""
@@ -267,6 +314,9 @@ class Store:
         if (run_dir / "fuente.jsonl").exists():
             for line in open(run_dir / "fuente.jsonl", encoding="utf-8"):
                 self.insert_source_event(json.loads(line))
+        if (run_dir / "revisiones.jsonl").exists():          # revisiones humanas (F2)
+            for line in open(run_dir / "revisiones.jsonl", encoding="utf-8"):
+                self.insert_review(json.loads(line))
         self.con.execute(
             "INSERT INTO ingest_log(at,run_id,inserted,duplicates,rejected,rejected_detail) "
             "VALUES (datetime('now'),?,?,?,?,?)",

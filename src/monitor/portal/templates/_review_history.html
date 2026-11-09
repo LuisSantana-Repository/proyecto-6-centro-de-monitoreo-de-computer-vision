@@ -1,0 +1,17 @@
+{% if history %}
+<table class="hist">
+<thead><tr><th>Momento (UTC)</th><th>Operador</th><th>Acción</th><th>Resultado</th><th>Nota</th></tr></thead>
+<tbody>
+{% for h in history|reverse %}
+<tr>
+  <td class="mono">{{ h.at }}</td>
+  <td>{{ h.operator }}</td>
+  <td>{{ h.action }}</td>
+  <td>{{ h.state_before }} → <b>{{ h.state_after }}</b>{% if h.verdict %}<br><span class="muted">veredicto: {{ h.verdict }}</span>{% endif %}
+      {% if h.alert_status %}<br><span class="muted">alerta {{ h.alert_status }} en ese momento</span>{% endif %}</td>
+  <td>{{ h.note or '—' }}</td>
+</tr>
+{% endfor %}
+</tbody></table>
+<p class="muted small">Registro primario: <span class="mono">datos/runs/{{ history[0].run_id }}/revisiones.jsonl</span> · cada acción es inmutable.</p>
+{% else %}<p class="muted">Sin acciones registradas.</p>{% endif %}

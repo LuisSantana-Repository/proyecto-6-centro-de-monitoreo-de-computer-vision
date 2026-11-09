@@ -1,0 +1,2 @@
+9 ejecuciones · 3750 eventos · 64 ventanas · 12 alertas · 18 puntos de atención
+coincide con los registros primarios (events, windows, alerts y revisiones.jsonl)

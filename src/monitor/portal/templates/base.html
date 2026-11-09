@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Centro de monitoreo{% endblock %} · Proyecto 6</title>
+{% block head %}{% endblock %}
 <style>
   :root { --azul:#003c71; --tinta:#1f2d3a; --muted:#5b6b79; --borde:#dce5ec; --fondo:#f4f7fa;
           --ok:#1e7a3c; --duda:#c26a00; --baja:#b3261e; }
@@ -74,12 +75,34 @@
   .vivo-fuente_caida, .vivo-estancada { background:#fde8e6; border-color:#f3c1bc; color:var(--baja); }
   .vivo-terminada { background:#eef2f6; border-color:var(--borde); color:var(--muted); }
   progress { vertical-align:middle; width:140px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:12px; margin-bottom:14px; }
+  .kpi { background:#fff; border:1px solid var(--borde); border-radius:10px; padding:12px 14px; }
+  .kpi .k { font-size:12px; color:var(--muted); font-weight:600; }
+  .kpi .v { font-size:28px; font-weight:700; line-height:1.15; font-variant-numeric:tabular-nums; }
+  .kpi .d { font-size:12px; color:var(--muted); }
+  .lvl { display:inline-block; min-width:96px; font-size:12px; font-weight:700; }
+  .lvl-critico { color:var(--baja); } .lvl-aviso { color:var(--duda); } .lvl-seguimiento { color:var(--muted); }
+  ul.att { list-style:none; margin:0; padding:0; }
+  ul.att li { padding:6px 0; border-bottom:1px solid var(--borde); display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+  ul.att li:last-child { border-bottom:0; }
+  .wbar { display:flex; gap:2px; width:160px; height:12px; }
+  .wbar span { display:block; height:100%; min-width:3px; }
+  .wbar span:first-child { border-radius:4px 0 0 4px; } .wbar span:last-child { border-radius:0 4px 4px 0; }
+  .wbar span:only-child { border-radius:4px; }
+  .w-normal { background:#0ca30c; } .w-fuera_de_rango { background:#d03b3b; } .w-otra_version { background:#fab219; }
+  .w-insuficiente { background:#8a897f; } .w-incompleta { background:#c3c2b7; }
+  .wkey { display:inline-flex; align-items:center; gap:4px; margin-right:12px; }
+  .wkey i { display:inline-block; width:10px; height:10px; border-radius:2px; }
+  .st-terminada { background:#eef2f6; color:var(--muted); } .st-en_curso { background:#e0f5ea; color:var(--ok); }
+  .st-fuente_caida, .st-estancada { background:#fde8e6; color:var(--baja); } .st-sin_cerrar { background:#fff0df; color:var(--duda); }
+  .tablewrap { overflow-x:auto; }
 </style>
 </head>
 <body>
 <header>
   <b>Proyecto 6 · Centro de monitoreo</b>
   {% set p = request.url.path %}
+  <a href="/panel" class="{{ 'on' if p.startswith('/panel') }}">Panel</a>
   <a href="/vivo" class="{{ 'on' if p.startswith('/vivo') }}">En vivo</a>
   <a href="/eventos" class="{{ 'on' if p.startswith('/eventos') }}">Eventos</a>
   <a href="/alertas" class="{{ 'on' if p.startswith('/alertas') }}">Alertas</a>

@@ -1,0 +1,3 @@
+11 ejecuciones · 4030 eventos · 68 ventanas · 14 alertas · 23 puntos de atención
+NO coincide con los JSONL:
+  20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion

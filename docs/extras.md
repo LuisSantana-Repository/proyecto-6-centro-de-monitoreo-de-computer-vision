@@ -15,6 +15,7 @@ forma de verificarlo.
 | **F2** | Funcionalidad | Revisión humana de alertas y capturas: estados coordinados con las reglas, persistencia trazable, cola de revisión | 15 | completo |
 | **F3** | Funcionalidad | Exportación de eventos y detecciones (CSV/JSONL) con filtros, procedencia y verificación | 10 | completo |
 | **F4** | Funcionalidad | Vista en vivo del stream con resultados, estado de la ejecución y de la fuente | 15 | completo |
+| **F5** | Funcionalidad | Panel de operación (dashboard): indicadores, puntos de atención, estado por ejecución y por regla, verificado contra los JSONL | 10 | completo |
 
 ---
 
@@ -171,6 +172,24 @@ de fallo reproducibles. Código: [`src/monitor/live.py`](../src/monitor/live.py)
 | **Pruebas** | [`tests/test_live.py`](../tests/test_live.py), 7 pruebas: clasificación de los cuatro estados con sus antigüedades; el publicador escribe el estado y el frame, conserva el último frame durante la caída y deja `terminada` sin temporales; un fallo de escritura no detiene el monitor; estado vacío; vistas, fragmento, frame, API y 404 (incluido `..` codificado); `estancada` y `fuente_caida` en la página; y una prueba de punta a punta que corre `monitor.run` real sobre 3 frames y verifica el estado final. |
 | **Por qué nivel 15** | Coordina dos procesos con estados derivados de reglas explícitas, enlaza todo lo que muestra con registros persistidos y demuestra tanto el caso normal (cámara real) como fallos reproducibles: fuente caída por inyección y proceso detenido. |
 
+## F5 · Panel de operación (dashboard) (funcionalidad, nivel 10)
+
+Flujo compuesto con consulta parametrizada, persistencia pertinente y verificación de resultados y de
+estados vacíos o erróneos. Código: [`src/monitor/dashboard.py`](../src/monitor/dashboard.py), la
+plantilla [`panel.html`](../src/monitor/portal/templates/panel.html) y las rutas `/panel` (la portada del
+portal) y `/api/panel`.
+
+| | |
+|---|---|
+| **Qué hace** | Una vista de todas las ejecuciones a la vez, filtrada por modo (`live` o `replay`) y por rango de fecha de inicio (UTC). **Indicadores**: ejecuciones por modo y por estado, eventos y porcentaje válido, ventanas evaluadas y porcentaje fuera de rango, alertas abiertas, revisiones de alertas sin cerrar y la inferencia p50/p95. **Requiere atención**: una lista con niveles (crítico, aviso, seguimiento), en la que cada punto enlaza al registro que hay que atender. **Una fila por ejecución**: estado, eventos, % válidos, una barra con sus ventanas por estado, ventanas fuera de rango, alertas abiertas, revisiones sin cerrar, capturas sin revisar y enlaces a sus eventos, alertas, cola de revisión y gráficas. **Alertas por regla**: abiertas, resueltas, avance de revisión y veredictos. Mientras alguna ejecución está en curso, la página se recarga cada 15 s. |
+| **Reglas de atención** | Explícitas en `ATTENTION_RULES`, y la página las muestra. **A1**: alerta abierta sin reconocer; es crítica si la alerta es `critical`. **A2**: la regla ya resolvió la alerta, pero falta cerrar su revisión con un veredicto. **A3**: alerta reconocida cuya regla sigue abierta. **E1** y **E2**: ejecución sin terminar con la fuente caída, o cuyo monitor dejó de reportar (los estados de F4). **E3**: ejecución sin resumen final ni estado en vivo. **E4**: ejecución indexada en SQLite cuya carpeta de registros primarios no existe. **C1**: capturas por baja confianza sin revisar. El estado de cada ejecución lo da primero su registro (con `finished_at` está terminada); si no terminó, lo explica la vista en vivo. |
+| **Persistencia y verificación** | Solo lee: SQLite en modo de solo lectura y los `estado.json` de la vista en vivo. No guarda estado propio: lo que muestra son los registros de las ejecuciones, las alertas y las revisiones. `python -m monitor.dashboard --verificar` recalcula, por ejecución, eventos, válidos, sin frame, capturas, ventanas por estado, alertas, alertas abiertas, estado de revisión y capturas revisadas directamente de `events`, `windows`, `alerts` y `revisiones.jsonl`, sin SQLite. Además comprueba que los totales sean la suma de las filas. Sale con 1 y la lista de diferencias si algo no coincide. |
+| **Estados vacíos y errores** | Sin ejecuciones: mensaje con los comandos para crearlas o indexarlas. Ningún resultado con los filtros: mensaje y enlace para quitarlos; los indicadores quedan en "—", nunca en 0 %. Ejecución sin ventanas: "sin ventanas" y "—" en fuera de rango. Modo desconocido, fecha que no es ISO 8601, rango invertido o parámetro desconocido: 422 con el motivo, conservando los filtros en el formulario. En la API, 422 con `detail`. Base inexistente en la CLI: mensaje con el comando para crearla. |
+| **Uso con datos reales** | **Base reconstruida desde lo versionado** (como la tendría quien clona el repositorio): 9 ejecuciones, 3 750 eventos, 56 ventanas evaluadas (27 % fuera de rango), 6 de 12 alertas abiertas y 18 puntos de atención. El punto crítico es el cambio sostenido abierto de S1-W. La verificación coincide: [`verificacion-reconstruida.txt`](../evidencias/panel/verificacion-reconstruida.txt), [`35`](../evidencias/portal/35-panel.png), [`portal/api/panel.json`](../evidencias/portal/api/panel.json). **Filtro**: solo las 3 ejecuciones en vivo ([`36`](../evidencias/portal/36-panel-filtro-vivo.png)). **Error**: `since=ayer` da 422 y el formulario conserva el filtro ([`37`](../evidencias/portal/37-panel-error-filtro.png)). **Base de trabajo local, con dos fallos reales**: el panel marcó `E2` en la demo de F4 que se detuvo a propósito (sin reportes desde hace más de una hora) y `E4` en una ejecución S1-R vieja (`20261108T191228Z`) que seguía en la base, aunque su carpeta ya se había borrado al repetir el escenario. La verificación falla justo en esa ejecución ([`verificacion-base-local.txt`](../evidencias/panel/verificacion-base-local.txt), [`38`](../evidencias/portal/38-panel-base-local.png)). Reconstruir el índice con `monitor.ingest` la elimina. |
+| **Reproducir** | `uv run python -m monitor.ingest` y luego `uv run python -m monitor.dashboard --verificar` (o abrir `/panel` en el portal). Con `--mode live`, `--since` y `--until` se aplican los mismos filtros de la página. |
+| **Pruebas** | [`tests/test_dashboard.py`](../tests/test_dashboard.py), 8 pruebas sobre cinco ejecuciones escritas como JSONL e indexadas con `Store.ingest_run_dir`, con la vista en vivo de dos de ellas. Cubren: indicadores y filas (con un evento reenviado que no se cuenta dos veces y la mediana interpolada); las siete reglas de atención y su orden, y cómo cambian al cerrar o reconocer una revisión; el estado coordinado de cada ejecución; los filtros y sus cuatro errores; la verificación (coincide, detecta un JSONL modificado sin reindexar y una carpeta borrada, con E4); las vistas, la API, la recarga automática, el 422 que conserva el filtro, los dos estados vacíos; y la CLI `--verificar` con salida 0 y 1. |
+| **Por qué nivel 10** | Consulta parametrizada sobre lo persistido, resultados verificados contra los registros primarios y estados vacíos y erróneos probados. Las reglas de atención combinan el estado de las alertas, de la revisión (F2) y de la vista en vivo (F4), pero esos estados ya se cobraron en F2 y F4, así que no se usan para pedir 15. |
+
 ## Control de doble conteo
 
 - M1 y la regla `cambio-sostenido-v1` (R3.3) usan la misma población, pero M1 compara distribuciones
@@ -194,6 +213,11 @@ de fallo reproducibles. Código: [`src/monitor/live.py`](../src/monitor/live.py)
   no recalcula ni reclama ninguna métrica. Su aportación es la publicación del estado en curso, su
   clasificación (`en_curso`, `fuente_caida`, `estancada`, `terminada`) y la coordinación entre procesos.
   S1 es el escenario de fallo; F4 solo lo hace visible mientras ocurre.
+- F5 agrega lo que muestran las vistas base, F1, F2 y F4, pero no las repite: no grafica señales por
+  ventana (eso es F1), no escribe revisiones (F2) ni publica estado en vivo (F4). Su aportación es la
+  vista de todas las ejecuciones a la vez, las reglas de atención que cruzan esos estados y la
+  verificación del índice contra los registros primarios. La inferencia p50/p95 es G1 (base), solo
+  mostrada; no se reclama como métrica.
 - F1 es la visualización. Muestra W1 (M1), pero su aportación propia es la consulta parametrizada,
   la presentación por ventana y el manejo de estados vacíos o erróneos. La rúbrica permite bonos
   separados para una funcionalidad visual y la métrica que muestra. La tabla de ventanas de

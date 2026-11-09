@@ -1,0 +1,621 @@
+{
+    "generado": "2026-11-09T02:25:28Z",
+    "filtros": {},
+    "kpis": {
+        "ejecuciones": {
+            "n": 9,
+            "live": 3,
+            "replay": 6,
+            "por_estado": {
+                "en_curso": 0,
+                "fuente_caida": 0,
+                "estancada": 0,
+                "sin_cerrar": 0,
+                "terminada": 9
+            }
+        },
+        "eventos": {
+            "n": 3750,
+            "validos": 3645,
+            "pct_validos": 0.972,
+            "sin_frame": 105,
+            "errores_inferencia": 0,
+            "capturas": 519
+        },
+        "ventanas": {
+            "n": 64,
+            "evaluadas": 56,
+            "por_estado": {
+                "normal": 41,
+                "fuera_de_rango": 15,
+                "otra_version": 2,
+                "insuficiente": 3,
+                "incompleta": 3
+            },
+            "pct_fuera_de_rango": 0.2679
+        },
+        "alertas": {
+            "n": 12,
+            "abiertas": 6,
+            "resueltas": 6,
+            "revision": {
+                "pendiente": 9,
+                "reconocida": 1,
+                "revisada": 2
+            }
+        },
+        "capturas": {
+            "n": 519,
+            "revisadas": 2,
+            "sin_revisar_baja_confianza": 286
+        },
+        "inferencia_ms": {
+            "n": 3645,
+            "p50": 244.0,
+            "p95": 417.5
+        }
+    },
+    "atencion": [
+        {
+            "regla": "A1",
+            "nivel": "critico",
+            "run_id": "20261108T224433Z-s1-wifi",
+            "at": "2026-11-08T22:53:30.205Z",
+            "texto": "cambio-sostenido-v1 (critical) abierta desde 2026-11-08T22:53:30.205Z y sin reconocer",
+            "href": "/alertas/alert-20261108T224433Z-s1-wifi-cambio-sostenido-v1-w0004"
+        },
+        {
+            "regla": "A1",
+            "nivel": "aviso",
+            "run_id": "20261109T005919Z-f4-vivo",
+            "at": "2026-11-09T01:01:42.662Z",
+            "texto": "baja-confianza-v1 (warning) abierta desde 2026-11-09T01:01:42.662Z y sin reconocer",
+            "href": "/alertas/alert-20261109T005919Z-f4-vivo-baja-confianza-v1-w0001"
+        },
+        {
+            "regla": "A1",
+            "nivel": "aviso",
+            "run_id": "20261108T224433Z-s1-wifi",
+            "at": "2026-11-08T22:46:44.074Z",
+            "texto": "baja-confianza-v1 (warning) abierta desde 2026-11-08T22:46:44.074Z y sin reconocer",
+            "href": "/alertas/alert-20261108T224433Z-s1-wifi-baja-confianza-v1-w0001"
+        },
+        {
+            "regla": "A1",
+            "nivel": "aviso",
+            "run_id": "20261108T222800Z-s1-vivo-interrupcion",
+            "at": "2026-11-08T22:37:04.124Z",
+            "texto": "baja-confianza-v1 (warning) abierta desde 2026-11-08T22:37:04.124Z y sin reconocer",
+            "href": "/alertas/alert-20261108T222800Z-s1-vivo-interrupcion-baja-confianza-v1-w0004"
+        },
+        {
+            "regla": "A2",
+            "nivel": "aviso",
+            "run_id": "20261108T222800Z-s1-vivo-interrupcion",
+            "at": "2026-11-08T22:32:47.598Z",
+            "texto": "fuente-interrumpida-v1 resuelta 2026-11-08T22:32:47.598Z; falta cerrar su revisión con un veredicto",
+            "href": "/alertas/alert-20261108T222800Z-s1-vivo-interrupcion-fuente-interrumpida-v1-f000086#revision"
+        },
+        {
+            "regla": "A2",
+            "nivel": "aviso",
+            "run_id": "20261108T193149Z-s1-replay-interrupcion",
+            "at": "2026-11-08T19:36:30.585Z",
+            "texto": "fuente-interrumpida-v1 resuelta 2026-11-08T19:36:30.585Z; falta cerrar su revisión con un veredicto",
+            "href": "/alertas/alert-20261108T193149Z-s1-replay-interrupcion-fuente-interrumpida-v1-f000091#revision"
+        },
+        {
+            "regla": "A1",
+            "nivel": "aviso",
+            "run_id": "20261108T163302Z-c2-baja-confianza",
+            "at": "2026-11-08T16:45:15.179Z",
+            "texto": "baja-confianza-v1 (warning) abierta desde 2026-11-08T16:45:15.179Z y sin reconocer",
+            "href": "/alertas/alert-20261108T163302Z-c2-baja-confianza-baja-confianza-v1-w0006"
+        },
+        {
+            "regla": "A2",
+            "nivel": "aviso",
+            "run_id": "20261108T163302Z-c2-baja-confianza",
+            "at": "2026-11-08T16:43:14.768Z",
+            "texto": "baja-confianza-v1 resuelta 2026-11-08T16:43:14.768Z; falta cerrar su revisión con un veredicto",
+            "href": "/alertas/alert-20261108T163302Z-c2-baja-confianza-baja-confianza-v1-w0004#revision"
+        },
+        {
+            "regla": "A2",
+            "nivel": "aviso",
+            "run_id": "20261108T163302Z-c2-baja-confianza",
+            "at": "2026-11-08T16:39:14.779Z",
+            "texto": "baja-confianza-v1 resuelta 2026-11-08T16:39:14.779Z; falta cerrar su revisión con un veredicto",
+            "href": "/alertas/alert-20261108T163302Z-c2-baja-confianza-baja-confianza-v1-w0001#revision"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261109T005919Z-f4-vivo",
+            "at": "2026-11-09T00:59:33.201Z",
+            "texto": "f4-vivo: 8 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261109T005919Z-f4-vivo&estado=pendiente&reason=baja_confianza"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261108T232126Z-s2-cambio-version",
+            "at": "2026-11-08T23:21:41.181Z",
+            "texto": "s2-cambio-version: 18 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261108T232126Z-s2-cambio-version&estado=pendiente&reason=baja_confianza"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261108T224433Z-s1-wifi",
+            "at": "2026-11-08T22:44:36.984Z",
+            "texto": "s1-wifi: 39 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261108T224433Z-s1-wifi&estado=pendiente&reason=baja_confianza"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261108T222800Z-s1-vivo-interrupcion",
+            "at": "2026-11-08T22:28:07.455Z",
+            "texto": "s1-vivo-interrupcion: 20 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261108T222800Z-s1-vivo-interrupcion&estado=pendiente&reason=baja_confianza"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261108T193149Z-s1-replay-interrupcion",
+            "at": "2026-11-08T19:31:56.505Z",
+            "texto": "s1-replay-interrupcion: 15 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261108T193149Z-s1-replay-interrupcion&estado=pendiente&reason=baja_confianza"
+        },
+        {
+            "regla": "A3",
+            "nivel": "seguimiento",
+            "run_id": "20261108T163302Z-c2-baja-confianza",
+            "at": "2026-11-08T16:39:15.142Z",
+            "texto": "cambio-sostenido-v1 reconocida por Claude Code (asistente); la regla sigue abierta",
+            "href": "/alertas/alert-20261108T163302Z-c2-baja-confianza-cambio-sostenido-v1-w0003"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261108T163302Z-c2-baja-confianza",
+            "at": "2026-11-08T16:33:16.667Z",
+            "texto": "c2-baja-confianza: 64 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261108T163302Z-c2-baja-confianza&estado=pendiente&reason=baja_confianza"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261108T161753Z-c1-normal",
+            "at": "2026-11-08T16:18:00.658Z",
+            "texto": "c1-normal: 32 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261108T161753Z-c1-normal&estado=pendiente&reason=baja_confianza"
+        },
+        {
+            "regla": "C1",
+            "nivel": "seguimiento",
+            "run_id": "20261108T160249Z-referencia-tarde",
+            "at": "2026-11-08T16:03:02.450Z",
+            "texto": "referencia-tarde: 90 captura(s) por baja confianza sin revisar",
+            "href": "/revision?run_id=20261108T160249Z-referencia-tarde&estado=pendiente&reason=baja_confianza"
+        }
+    ],
+    "atencion_por_nivel": {
+        "critico": 1,
+        "aviso": 8,
+        "seguimiento": 9
+    },
+    "ejecuciones": [
+        {
+            "run_id": "20261109T005919Z-f4-vivo",
+            "label": "f4-vivo",
+            "mode": "live",
+            "started_at": "2026-11-09T00:59:33.201Z",
+            "finished_at": "2026-11-09T01:02:47.828Z",
+            "config_ref": "cfg-0b5e664b118c",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-09T01:02:47.828Z"
+            },
+            "eventos": 90,
+            "validos": 90,
+            "pct_validos": 1.0,
+            "sin_frame": 0,
+            "errores_inferencia": 0,
+            "capturas": 13,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 0,
+                "fuera_de_rango": 1,
+                "otra_version": 0,
+                "insuficiente": 0,
+                "incompleta": 1
+            },
+            "n_ventanas": 2,
+            "pct_fuera_de_rango": 1.0,
+            "alertas": 1,
+            "alertas_abiertas": 1,
+            "revision_alertas": {
+                "pendiente": 1,
+                "reconocida": 0,
+                "revisada": 0
+            },
+            "revision_alertas_pendiente": 1,
+            "capturas_revisadas": 0,
+            "capturas_sin_revisar": 13,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T232126Z-s2-cambio-version",
+            "label": "s2-cambio-version",
+            "mode": "replay",
+            "started_at": "2026-11-08T23:21:41.181Z",
+            "finished_at": "2026-11-08T23:29:39.712Z",
+            "config_ref": "cfg-2b094007ccc7",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T23:29:39.712Z"
+            },
+            "eventos": 240,
+            "validos": 240,
+            "pct_validos": 1.0,
+            "sin_frame": 0,
+            "errores_inferencia": 0,
+            "capturas": 33,
+            "modelos": 2,
+            "ventanas": {
+                "normal": 2,
+                "fuera_de_rango": 0,
+                "otra_version": 2,
+                "insuficiente": 0,
+                "incompleta": 0
+            },
+            "n_ventanas": 4,
+            "pct_fuera_de_rango": 0.0,
+            "alertas": 1,
+            "alertas_abiertas": 0,
+            "revision_alertas": {
+                "pendiente": 0,
+                "reconocida": 0,
+                "revisada": 1
+            },
+            "revision_alertas_pendiente": 0,
+            "capturas_revisadas": 0,
+            "capturas_sin_revisar": 33,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T224433Z-s1-wifi",
+            "label": "s1-wifi",
+            "mode": "live",
+            "started_at": "2026-11-08T22:44:36.984Z",
+            "finished_at": "2026-11-08T22:53:32.260Z",
+            "config_ref": "cfg-3ebc8541e4f7",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T22:53:32.260Z"
+            },
+            "eventos": 240,
+            "validos": 211,
+            "pct_validos": 0.8792,
+            "sin_frame": 29,
+            "errores_inferencia": 0,
+            "capturas": 53,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 0,
+                "fuera_de_rango": 3,
+                "otra_version": 0,
+                "insuficiente": 1,
+                "incompleta": 0
+            },
+            "n_ventanas": 4,
+            "pct_fuera_de_rango": 1.0,
+            "alertas": 3,
+            "alertas_abiertas": 2,
+            "revision_alertas": {
+                "pendiente": 2,
+                "reconocida": 0,
+                "revisada": 1
+            },
+            "revision_alertas_pendiente": 2,
+            "capturas_revisadas": 1,
+            "capturas_sin_revisar": 52,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T222800Z-s1-vivo-interrupcion",
+            "label": "s1-vivo-interrupcion",
+            "mode": "live",
+            "started_at": "2026-11-08T22:28:07.455Z",
+            "finished_at": "2026-11-08T22:37:05.805Z",
+            "config_ref": "cfg-3ebc8541e4f7",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T22:37:05.805Z"
+            },
+            "eventos": 240,
+            "validos": 209,
+            "pct_validos": 0.8708,
+            "sin_frame": 31,
+            "errores_inferencia": 0,
+            "capturas": 33,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 1,
+                "fuera_de_rango": 2,
+                "otra_version": 0,
+                "insuficiente": 1,
+                "incompleta": 0
+            },
+            "n_ventanas": 4,
+            "pct_fuera_de_rango": 0.6667,
+            "alertas": 2,
+            "alertas_abiertas": 1,
+            "revision_alertas": {
+                "pendiente": 2,
+                "reconocida": 0,
+                "revisada": 0
+            },
+            "revision_alertas_pendiente": 2,
+            "capturas_revisadas": 0,
+            "capturas_sin_revisar": 33,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T193149Z-s1-replay-interrupcion",
+            "label": "s1-replay-interrupcion",
+            "mode": "replay",
+            "started_at": "2026-11-08T19:31:56.505Z",
+            "finished_at": "2026-11-08T19:39:54.841Z",
+            "config_ref": "cfg-3ebc8541e4f7",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T19:39:54.841Z"
+            },
+            "eventos": 240,
+            "validos": 195,
+            "pct_validos": 0.8125,
+            "sin_frame": 45,
+            "errores_inferencia": 0,
+            "capturas": 27,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 3,
+                "fuera_de_rango": 0,
+                "otra_version": 0,
+                "insuficiente": 1,
+                "incompleta": 0
+            },
+            "n_ventanas": 4,
+            "pct_fuera_de_rango": 0.0,
+            "alertas": 1,
+            "alertas_abiertas": 0,
+            "revision_alertas": {
+                "pendiente": 1,
+                "reconocida": 0,
+                "revisada": 0
+            },
+            "revision_alertas_pendiente": 1,
+            "capturas_revisadas": 0,
+            "capturas_sin_revisar": 27,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T163302Z-c2-baja-confianza",
+            "label": "c2-baja-confianza",
+            "mode": "replay",
+            "started_at": "2026-11-08T16:33:16.667Z",
+            "finished_at": "2026-11-08T16:48:15.197Z",
+            "config_ref": "cfg-0b5e664b118c",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T16:48:15.197Z"
+            },
+            "eventos": 450,
+            "validos": 450,
+            "pct_validos": 1.0,
+            "sin_frame": 0,
+            "errores_inferencia": 0,
+            "capturas": 93,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 0,
+                "fuera_de_rango": 7,
+                "otra_version": 0,
+                "insuficiente": 0,
+                "incompleta": 1
+            },
+            "n_ventanas": 8,
+            "pct_fuera_de_rango": 1.0,
+            "alertas": 4,
+            "alertas_abiertas": 2,
+            "revision_alertas": {
+                "pendiente": 3,
+                "reconocida": 1,
+                "revisada": 0
+            },
+            "revision_alertas_pendiente": 4,
+            "capturas_revisadas": 0,
+            "capturas_sin_revisar": 93,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T161753Z-c1-normal",
+            "label": "c1-normal",
+            "mode": "replay",
+            "started_at": "2026-11-08T16:18:00.658Z",
+            "finished_at": "2026-11-08T16:32:59.196Z",
+            "config_ref": "cfg-0b5e664b118c",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T16:32:59.196Z"
+            },
+            "eventos": 450,
+            "validos": 450,
+            "pct_validos": 1.0,
+            "sin_frame": 0,
+            "errores_inferencia": 0,
+            "capturas": 59,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 7,
+                "fuera_de_rango": 0,
+                "otra_version": 0,
+                "insuficiente": 0,
+                "incompleta": 1
+            },
+            "n_ventanas": 8,
+            "pct_fuera_de_rango": 0.0,
+            "alertas": 0,
+            "alertas_abiertas": 0,
+            "revision_alertas": {
+                "pendiente": 0,
+                "reconocida": 0,
+                "revisada": 0
+            },
+            "revision_alertas_pendiente": 0,
+            "capturas_revisadas": 1,
+            "capturas_sin_revisar": 58,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T160249Z-referencia-tarde",
+            "label": "referencia-tarde",
+            "mode": "replay",
+            "started_at": "2026-11-08T16:03:02.450Z",
+            "finished_at": "2026-11-08T16:07:28.119Z",
+            "config_ref": "cfg-0b5e664b118c",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T16:07:28.119Z"
+            },
+            "eventos": 900,
+            "validos": 900,
+            "pct_validos": 1.0,
+            "sin_frame": 0,
+            "errores_inferencia": 0,
+            "capturas": 148,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 13,
+                "fuera_de_rango": 2,
+                "otra_version": 0,
+                "insuficiente": 0,
+                "incompleta": 0
+            },
+            "n_ventanas": 15,
+            "pct_fuera_de_rango": 0.1333,
+            "alertas": 0,
+            "alertas_abiertas": 0,
+            "revision_alertas": {
+                "pendiente": 0,
+                "reconocida": 0,
+                "revisada": 0
+            },
+            "revision_alertas_pendiente": 0,
+            "capturas_revisadas": 0,
+            "capturas_sin_revisar": 148,
+            "registro_primario": true
+        },
+        {
+            "run_id": "20261108T155809Z-referencia-manana",
+            "label": "referencia-manana",
+            "mode": "replay",
+            "started_at": "2026-11-08T15:58:23.050Z",
+            "finished_at": "2026-11-08T16:02:45.705Z",
+            "config_ref": "cfg-0b5e664b118c",
+            "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+            "estado": {
+                "state": "terminada",
+                "motivo": "terminó 2026-11-08T16:02:45.705Z"
+            },
+            "eventos": 900,
+            "validos": 900,
+            "pct_validos": 1.0,
+            "sin_frame": 0,
+            "errores_inferencia": 0,
+            "capturas": 60,
+            "modelos": 1,
+            "ventanas": {
+                "normal": 15,
+                "fuera_de_rango": 0,
+                "otra_version": 0,
+                "insuficiente": 0,
+                "incompleta": 0
+            },
+            "n_ventanas": 15,
+            "pct_fuera_de_rango": 0.0,
+            "alertas": 0,
+            "alertas_abiertas": 0,
+            "revision_alertas": {
+                "pendiente": 0,
+                "reconocida": 0,
+                "revisada": 0
+            },
+            "revision_alertas_pendiente": 0,
+            "capturas_revisadas": 0,
+            "capturas_sin_revisar": 60,
+            "registro_primario": true
+        }
+    ],
+    "reglas": [
+        {
+            "rule_id": "baja-confianza-v1",
+            "severity": "warning",
+            "n": 6,
+            "abiertas": 4,
+            "resueltas": 2,
+            "pendiente": 6,
+            "reconocida": 0,
+            "revisada": 0,
+            "veredictos": {}
+        },
+        {
+            "rule_id": "cambio-sostenido-v1",
+            "severity": "critical",
+            "n": 2,
+            "abiertas": 2,
+            "resueltas": 0,
+            "pendiente": 1,
+            "reconocida": 1,
+            "revisada": 0,
+            "veredictos": {}
+        },
+        {
+            "rule_id": "fuente-interrumpida-v1",
+            "severity": "critical",
+            "n": 3,
+            "abiertas": 0,
+            "resueltas": 3,
+            "pendiente": 2,
+            "reconocida": 0,
+            "revisada": 1,
+            "veredictos": {
+                "esperada": 1
+            }
+        },
+        {
+            "rule_id": "version-modelo-v1",
+            "severity": "critical",
+            "n": 1,
+            "abiertas": 0,
+            "resueltas": 1,
+            "pendiente": 0,
+            "reconocida": 0,
+            "revisada": 1,
+            "veredictos": {
+                "esperada": 1
+            }
+        }
+    ]
+}

@@ -2,7 +2,7 @@
 
 **Estudiante:** Luis Santana · **Entrega:** individual · **Configuración:** `cfg-0b5e664b118c`
 ([`config/monitor.yaml`](../config/monitor.yaml)) · **Modelo:** `yolo11n@sha256:0ebbc80d4a76`
-([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, M1, M2, M3, F1, F2, F3 y F4 ([`docs/extras.md`](../docs/extras.md);
+([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, M1, M2, M3, F1, F2, F3, F4 y F5 ([`docs/extras.md`](../docs/extras.md);
 sección [Extras](#extras) abajo).
 
 ## Revisiones Git
@@ -93,7 +93,7 @@ Desde un clon limpio:
 ```bash
 uv sync
 uv run python -m monitor.download_model         # pesos verificados por SHA-256
-uv run pytest -q                                # 99 pruebas
+uv run pytest -q                                # 107 pruebas
 
 # 1) Recalcular desde los registros primarios versionados (sin modelo)
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
@@ -101,7 +101,8 @@ uv run python -m monitor.metrics  datos/runs/20261108T163302Z-c2-baja-confianza 
 
 # 2) Portal sobre las ejecuciones oficiales
 uv run python -m monitor.ingest                 # crea datos/monitor.db desde datos/runs/
-uv run python -m monitor.portal                 # http://127.0.0.1:8000
+uv run python -m monitor.dashboard --verificar  # el panel (F5) coincide con los JSONL de cada ejecución
+uv run python -m monitor.portal                 # http://127.0.0.1:8000 (abre en /panel)
 
 # 3) Reproducir la inferencia sobre la muestra (60 frames = 1 ventana; ~1 min)
 uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --label muestra-c2
@@ -110,7 +111,7 @@ uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --l
 ```
 
 Comprobado en un clon limpio de `97469f3` (antes de los extras), descargado desde GitHub el 2026-11-08:
-- 29 pruebas pasan (hoy son 99).
+- 29 pruebas pasan (hoy son 107).
 - `evaluate` coincide en las cuatro ejecuciones.
 - Las métricas de C2 son idénticas a [`metricas/`](metricas/).
 - La muestra de C2 reproduce la ventana 1 y su alerta.
@@ -156,6 +157,10 @@ Las capturas están en [`portal/`](portal/); se tomaron con Edge headless sobre 
 | 32 | `/vivo?run_id=…f4-vivo` | F4: la misma ejecución terminada, con su alerta de baja confianza |
 | 33 | `/vivo` | F4: replay con corte inyectado: `fuente_caida`, antigüedad del último frame, alerta de la fuente abierta |
 | 34 | `/vivo?run_id=…f4-demo-fallo` | F4: el mismo proceso detenido a la mitad: `estancada` |
+| 35 | `/panel` | F5: panel sobre la base reconstruida desde lo versionado (9 ejecuciones, 18 puntos de atención) |
+| 36 | `/panel?mode=live` | F5: filtro por modo: las 3 ejecuciones en vivo |
+| 37 | `/panel?mode=live&since=ayer` | F5: error 422 con los filtros conservados |
+| 38 | `/panel` (base de trabajo local) | F5: dos fallos reales detectados: `E2` (demo de F4 detenida) y `E4` (ejecución indexada sin carpeta) |
 
 Respuestas JSON de la API en el mismo momento: [`portal/api/`](portal/api/).
 
@@ -170,6 +175,7 @@ Detalle, definiciones y control de doble conteo: [`docs/extras.md`](../docs/extr
 | **F2** revisión humana de alertas y capturas | 15 | `datos/runs/*/revisiones.jsonl` (9 acciones); capturas [`23`](portal/23-revision-cola-s1-wifi.png)–[`27`](portal/27-alertas-por-revision.png); [`portal/api/revisiones.json`](portal/api/revisiones.json); [`tests/test_review.py`](../tests/test_review.py) |
 | **F3** exportación de eventos | 10 | [`exportaciones/`](exportaciones/) (4 archivos + registro, verificados con `monitor.export --verificar`); capturas [`28`](portal/28-exportar-vista-previa.png)–[`30`](portal/30-exportar-error.png); [`tests/test_export.py`](../tests/test_export.py) |
 | **F4** vista en vivo | 15 | ejecución `20261109T005919Z-f4-vivo`; capturas [`31`](portal/31-vivo-en-curso.png)–[`34`](portal/34-vivo-estancada.png); [`tests/test_live.py`](../tests/test_live.py) |
+| **F5** panel de operación | 10 | capturas [`35`](portal/35-panel.png)–[`38`](portal/38-panel-base-local.png); [`panel/`](panel/) (verificación contra los JSONL: coincide en la base reconstruida, falla en la local); [`portal/api/panel.json`](portal/api/panel.json); [`tests/test_dashboard.py`](../tests/test_dashboard.py) |
 | **M1** desplazamiento de la distribución (W1) | 8 | [`config/referencia-distribucion.json`](../config/referencia-distribucion.json); `metricas_adicionales` en [`metricas/`](metricas/); [`tests/test_drift.py`](../tests/test_drift.py) |
 | **M2** latencia de punta a punta | 5 | `metricas_adicionales.M2_latencia_e2e` y `ventanas[].M2_e2e_p95_ms` en [`metricas/`](metricas/) |
 | **M3** recuperación de la fuente y disponibilidad | 5 | `metricas_adicionales.M3_recuperacion_fuente` de las tres ejecuciones de S1 |

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Panel de operación{% endblock %}
+{% block head %}{% if refresh %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
+{% block content %}
+{% set lvl_label = {'critico': '● Crítico', 'aviso': '▲ Aviso', 'seguimiento': '○ Seguimiento'} %}
+{% set st_label = {'terminada': 'terminada', 'en_curso': 'en curso', 'fuente_caida': 'fuente caída',
+                   'estancada': 'sin reportes', 'sin_cerrar': 'sin cerrar'} %}
+<h1>Panel de operación</h1>
+<div class="card">
+<form class="filters" method="get" action="/panel">
+  <label>Modo
+    <select name="mode"><option value="">Todos</option>
+      {% for m in ['live', 'replay'] %}<option value="{{ m }}" {{ 'selected' if f.mode == m }}>{{ 'en vivo' if m == 'live' else 'replay' }}</option>{% endfor %}
+    </select></label>
+  <label>Inicio desde (UTC)<input name="since" value="{{ f.since or '' }}" placeholder="aaaa-mm-dd"></label>
+  <label>Inicio hasta (UTC)<input name="until" value="{{ f.until or '' }}" placeholder="aaaa-mm-ddThh:mm:ssZ"></label>
+  <button>Aplicar</button> <a href="/panel">Limpiar</a>
+  {% if d %}<span class="muted small" style="margin-left:auto">Generado {{ d.generado }}{% if refresh %} · se actualiza cada 15 s mientras haya una ejecución en curso{% endif %}
+    · <a href="/api/panel{{ '?' + qs if qs }}">JSON</a></span>{% endif %}
+</form>
+</div>
+
+{% if error %}
+<div class="flash err" role="alert"><b>Filtro no válido.</b> {{ error }}</div>
+{% elif not any_runs %}
+<div class="empty">No hay ejecuciones registradas. Inicia una con <span class="mono">uv run python -m monitor.run</span>
+  o indexa las existentes con <span class="mono">uv run python -m monitor.ingest</span>.</div>
+{% elif not d.ejecuciones %}
+<div class="empty">Ninguna ejecución coincide con estos filtros. <a href="/panel">Ver todas</a>.</div>
+{% else %}
+{% set k = d.kpis %}
+<div class="kpis">
+  <div class="kpi"><div class="k">Ejecuciones</div><div class="v">{{ k.ejecuciones.n }}</div>
+    <div class="d">{{ k.ejecuciones.live }} en vivo · {{ k.ejecuciones.replay }} replay<br>
+      {% for s, n in k.ejecuciones.por_estado.items() if n %}{{ n }} {{ st_label[s] }}{{ ' · ' if not loop.last }}{% endfor %}</div></div>
+  <div class="kpi"><div class="k">Eventos</div><div class="v">{{ '{:,}'.format(k.eventos.n) }}</div>
+    <div class="d">{{ '%.1f'|format(100 * k.eventos.pct_validos) if k.eventos.pct_validos is not none else '—' }} % válidos ·
+      {{ k.eventos.sin_frame }} sin frame · {{ k.eventos.errores_inferencia }} errores de inferencia</div></div>
+  <div class="kpi"><div class="k">Ventanas evaluadas</div><div class="v">{{ k.ventanas.evaluadas }}</div>
+    <div class="d">{{ k.ventanas.por_estado.fuera_de_rango }} fuera de rango
+      ({{ '%.0f'|format(100 * k.ventanas.pct_fuera_de_rango) if k.ventanas.pct_fuera_de_rango is not none else '—' }} %) ·
+      {{ k.ventanas.n - k.ventanas.evaluadas }} sin evaluar</div></div>
+  <div class="kpi"><div class="k">Alertas abiertas</div><div class="v">{{ k.alertas.abiertas }}</div>
+    <div class="d">de {{ k.alertas.n }} · {{ k.alertas.resueltas }} resueltas por su regla</div></div>
+  <div class="kpi"><div class="k">Revisión de alertas sin cerrar</div><div class="v">{{ k.alertas.n - k.alertas.revision.revisada }}</div>
+    <div class="d">{{ k.alertas.revision.pendiente }} pendientes · {{ k.alertas.revision.reconocida }} reconocidas ·
+      {{ k.alertas.revision.revisada }} revisadas</div></div>
+  <div class="kpi"><div class="k">Inferencia (ms)</div><div class="v">{{ k.inferencia_ms.p50|round|int if k.inferencia_ms.p50 is not none else '—' }}</div>
+    <div class="d">p50 · p95 {{ k.inferencia_ms.p95|round|int if k.inferencia_ms.p95 is not none else '—' }} ·
+      {{ '{:,}'.format(k.inferencia_ms.n) }} eventos válidos</div></div>
+</div>
+
+<h2>Requiere atención <span class="muted">({{ d.atencion|length }})</span></h2>
+<div class="card">
+  {% if d.atencion %}
+  <p class="muted small" style="margin-top:0">{% for lv, n in d.atencion_por_nivel.items() %}<span class="lvl-{{ lv }}"><b>{{ lvl_label[lv] }}</b></span> {{ n }}{{ ' · ' if not loop.last }}{% endfor %}
+    · ordenado por nivel y, dentro de cada nivel, lo más reciente primero</p>
+  {% macro item(a) %}<li><span class="lvl lvl-{{ a.nivel }}">{{ lvl_label[a.nivel] }}</span>
+      <span class="mono small" title="{{ rules[a.regla][1] }}">{{ a.regla }}</span>
+      <a href="{{ a.href }}">{{ a.texto }}</a>
+      <span class="muted small mono">{{ a.run_id }}</span></li>{% endmacro %}
+  {% set urgent = d.atencion|rejectattr('nivel', 'equalto', 'seguimiento')|list %}
+  {% set follow = d.atencion|selectattr('nivel', 'equalto', 'seguimiento')|list %}
+  {% if urgent %}<ul class="att">{% for a in urgent %}{{ item(a) }}{% endfor %}</ul>
+  {% else %}<p class="muted" style="margin:0">Nada crítico ni avisos pendientes.</p>{% endif %}
+  {% if follow %}<details style="margin-top:8px"><summary class="small"><b>{{ lvl_label['seguimiento'] }} ({{ follow|length }})</b>:
+    alertas reconocidas que su regla mantiene abiertas y capturas de baja confianza sin revisar</summary>
+    <ul class="att">{% for a in follow %}{{ item(a) }}{% endfor %}</ul></details>{% endif %}
+  {% else %}<p class="muted" style="margin:0">Nada pendiente: todas las alertas están revisadas, las ejecuciones terminaron y no hay capturas de baja confianza sin revisar.</p>{% endif %}
+</div>
+
+<h2>Ejecuciones <span class="muted">({{ d.ejecuciones|length }})</span></h2>
+<p class="muted small">
+  {% for s in states %}<span class="wkey"><i class="w-{{ s }}"></i>{{ s }}</span>{% endfor %}
+  · cada barra reparte las ventanas de la ejecución por estado (el detalle, al pasar el cursor)</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Ejecución</th><th>Estado</th><th>Inicio (UTC)</th><th class="num">Eventos</th><th class="num">Válidos</th>
+  <th>Ventanas</th><th class="num">Fuera de rango</th><th class="num">Alertas abiertas</th>
+  <th class="num">Revisión sin cerrar</th><th class="num">Capturas sin revisar</th><th></th></tr></thead>
+<tbody>
+{% for r in d.ejecuciones %}
+<tr>
+  <td><a class="mono" href="/runs/{{ r.run_id }}">{{ r.label }}</a> <span class="muted small">{{ 'en vivo' if r.mode == 'live' else r.mode }}</span>
+    {% if r.modelos > 1 %}<br><span class="small muted">{{ r.modelos }} versiones del modelo</span>{% endif %}
+    {% if r.registro_primario is false %}<br><span class="badge sev-warning">sin registro primario</span>{% endif %}</td>
+  <td><span class="badge st-{{ r.estado.state }}" title="{{ r.estado.motivo }}">{{ st_label[r.estado.state] }}</span></td>
+  <td class="mono">{{ r.started_at }}</td>
+  <td class="num"><a href="/eventos?run_id={{ r.run_id }}">{{ '{:,}'.format(r.eventos) }}</a></td>
+  <td class="num">{{ '%.1f'|format(100 * r.pct_validos) if r.pct_validos is not none else '—' }} %</td>
+  <td>{% if r.n_ventanas %}<div class="wbar" role="img" aria-label="{% for s in states if r.ventanas[s] %}{{ r.ventanas[s] }} {{ s }}{{ ', ' if not loop.last }}{% endfor %}">
+      {% for s in states if r.ventanas[s] %}<span class="w-{{ s }}" style="flex:{{ r.ventanas[s] }}" title="{{ r.ventanas[s] }} {{ s }}"></span>{% endfor %}</div>
+      <span class="small muted">{{ r.n_ventanas }}</span>{% else %}<span class="muted small">sin ventanas</span>{% endif %}</td>
+  <td class="num">{% if r.pct_fuera_de_rango is not none %}{{ r.ventanas.fuera_de_rango }}/{{ r.ventanas.normal + r.ventanas.fuera_de_rango }}{% else %}—{% endif %}</td>
+  <td class="num"><a href="/alertas?run_id={{ r.run_id }}&status=open">{{ r.alertas_abiertas }}</a> <span class="muted">/ {{ r.alertas }}</span></td>
+  <td class="num">{{ r.revision_alertas_pendiente }}</td>
+  <td class="num">{% if r.capturas %}<a href="/revision?run_id={{ r.run_id }}&estado=pendiente">{{ r.capturas_sin_revisar }}</a> <span class="muted">/ {{ r.capturas }}</span>{% else %}—{% endif %}</td>
+  <td class="small">{% if r.n_ventanas %}<a href="/graficas?run_id={{ r.run_id }}">gráficas</a>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+
+<h2>Alertas por regla</h2>
+{% if d.reglas %}
+<table>
+<thead><tr><th>Regla</th><th>Severidad</th><th class="num">Total</th><th class="num">Abiertas</th><th class="num">Resueltas</th>
+  <th class="num">Revisión pendiente</th><th class="num">Reconocidas</th><th class="num">Revisadas</th><th>Veredictos</th></tr></thead>
+<tbody>
+{% for g in d.reglas %}
+<tr><td class="mono"><a href="/alertas?rule_id={{ g.rule_id }}">{{ g.rule_id }}</a></td>
+  <td><span class="badge sev-{{ g.severity }}">{{ g.severity }}</span></td>
+  <td class="num">{{ g.n }}</td><td class="num">{{ g.abiertas }}</td><td class="num">{{ g.resueltas }}</td>
+  <td class="num"><a href="/alertas?rule_id={{ g.rule_id }}&revision=pendiente">{{ g.pendiente }}</a></td>
+  <td class="num">{{ g.reconocida }}</td><td class="num">{{ g.revisada }}</td>
+  <td class="small">{% for v, n in g.veredictos.items() %}{{ v }}: {{ n }}{{ ' · ' if not loop.last }}{% else %}—{% endfor %}</td></tr>
+{% endfor %}
+</tbody></table>
+{% else %}<div class="empty">Las ejecuciones filtradas no tienen alertas.</div>{% endif %}
+{% endif %}
+
+<details class="card" style="margin-top:18px"><summary><b>Reglas de "Requiere atención"</b></summary>
+<table class="hist" style="margin-top:8px"><tbody>
+{% for id, rule in rules.items() %}<tr><td class="mono">{{ id }}</td><td>{{ rule[0].replace('|', ' o ') }}</td><td>{{ rule[1] }}</td></tr>{% endfor %}
+</tbody></table>
+<p class="muted small">El estado de cada ejecución lo da su registro (tiene resumen final: terminada). Si no terminó, lo explica la
+  vista en vivo (F4): en curso, fuente caída o sin reportes; sin estado en vivo, queda "sin cerrar".</p>
+</details>
+{% endblock %}

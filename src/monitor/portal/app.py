@@ -22,6 +22,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
+from monitor import dashboard as panelmod
 from monitor import drift
 from monitor import export as exporter
 from monitor import live as livemod
@@ -181,7 +182,37 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
     # -- vistas HTML ------------------------------------------------------------
     @app.get("/", include_in_schema=False)
     def home():
-        return RedirectResponse("/eventos")
+        return RedirectResponse("/panel")
+
+    # -- panel de operación (F5) -------------------------------------------------
+    def panel(params: dict) -> dict:
+        f = panelmod.PanelFilter.from_params(params)           # PanelError (422) si un filtro no es válido
+        con = panelmod.connect(db_path)
+        try:
+            return panelmod.build(con, panelmod.live_states(live_dir), f, runs_dir=root / runs_dir)
+        finally:
+            con.close()
+
+    @app.get("/panel", response_class=HTMLResponse)
+    def panel_page(request: Request):
+        params = dict(request.query_params)
+        ctx = {"f": params, "rules": panelmod.ATTENTION_RULES, "states": panelmod.WINDOW_STATES,
+               "any_runs": bool(one("SELECT 1 AS x FROM runs LIMIT 1"))}
+        try:
+            d = panel(params)
+        except panelmod.PanelError as e:
+            return templates.TemplateResponse(request, "panel.html", {**ctx, "error": e.message, "d": None},
+                                              status_code=e.status)
+        live_now = any(r["estado"]["state"] in ("en_curso", "fuente_caida") for r in d["ejecuciones"])
+        return templates.TemplateResponse(request, "panel.html", {**ctx, "error": "", "d": d, "refresh": live_now,
+                                                                  "qs": urlencode(d["filtros"])})
+
+    @app.get("/api/panel")
+    def api_panel(request: Request):
+        try:
+            return panel(dict(request.query_params))
+        except panelmod.PanelError as e:
+            raise HTTPException(e.status, e.message)
 
     @app.get("/eventos", response_class=HTMLResponse)
     def events_page(

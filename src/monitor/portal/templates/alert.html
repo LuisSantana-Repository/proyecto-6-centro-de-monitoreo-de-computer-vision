@@ -43,6 +43,10 @@
     {% if al.resolution and al.resolution.downtime_s is defined %}
     <dt>Resolución</dt><dd>caída de {{ al.resolution.downtime_s }} s · {{ al.resolution.n_invalid }} muestras sin frame ·
       primer frame recibido <a class="mono" href="/eventos/{{ al.resolution.first_ok_event_id }}">{{ al.resolution.first_ok_event_id }}</a></dd>
+    {% elif al.resolution and al.resolution.sink is defined %}
+    <dt>Resolución</dt><dd>destino <b>{{ al.resolution.sink }}</b> sin escribir durante {{ al.resolution.duration_s }} s
+      ({{ al.resolution.n_failed }} muestras) · máximo {{ al.resolution.max_pending }} pendientes, todos aplicados en orden al
+      recuperarse (muestra {{ al.resolution.recovered_at_seq }}) · <b>{{ al.resolution.lost }} perdidos</b></dd>
     {% elif al.resolution and al.resolution.n_errors is defined %}
     <dt>Resolución</dt><dd>inferencia fallida durante {{ al.resolution.duration_s }} s · {{ al.resolution.n_errors }} errores ·
       {{ al.resolution.n_reloads }} recarga(s) del modelo · resuelta por:

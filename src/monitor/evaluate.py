@@ -16,6 +16,7 @@ from pathlib import Path
 
 from monitor.alerts import InferenceHealthMonitor, ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
 from monitor.events import InferenceEvent
+from monitor.telemetry import TelemetryMonitor
 
 
 def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[list[dict], list[dict]]:
@@ -40,6 +41,11 @@ def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[li
         alerts += inference.add(e)[0]
         results.append(ev.add(e))
     results.append(ev.flush())
+    # S4: la regla de telemetría no se deriva de los eventos sino del estado de los destinos por muestra
+    if (run_dir / "telemetria.jsonl").exists():
+        tel = TelemetryMonitor(*args)
+        for line in open(run_dir / "telemetria.jsonl", encoding="utf-8"):
+            alerts += tel.add(json.loads(line))[0]
     window_alerts = []
     for win, new, _ in results:
         if win is not None:

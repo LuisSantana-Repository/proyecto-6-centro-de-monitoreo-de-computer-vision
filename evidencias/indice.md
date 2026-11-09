@@ -2,7 +2,7 @@
 
 **Estudiante:** Luis Santana · **Entrega:** individual · **Configuración:** `cfg-0b5e664b118c`
 ([`config/monitor.yaml`](../config/monitor.yaml)) · **Modelo:** `yolo11n@sha256:0ebbc80d4a76`
-([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, M1, M2, M3, F1, F2, F3, F4 y F5 ([`docs/extras.md`](../docs/extras.md);
+([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, S4, M1, M2, M3, F1, F2, F3, F4 y F5 ([`docs/extras.md`](../docs/extras.md);
 sección [Extras](#extras) abajo).
 
 ## Revisiones Git
@@ -54,6 +54,8 @@ de los eventos resuelven tal cual. Cada carpeta contiene:
 | `20261108T232126Z-s2-cambio-version` | extra **S2** | grabación de C1; `yolo11s` en las muestras 76–180 (240 frames) | 1 frame / 2 s |
 | `20261109T025839Z-s3a-corrupcion` | extra **S3-a** | grabación de C1; estado del modelo corrupto en la muestra 76, recarga efectiva | 1 frame / 2 s |
 | `20261109T030642Z-s3b-persistente` | extra **S3-b** | grabación de C1; inferencia fallida en las muestras 151–180, recargas sin efecto | 1 frame / 2 s |
+| `20261109T033540Z-s4a-indice-bloqueado` | extra **S4-a** | grabación de C1; candado exclusivo real sobre el índice en las muestras 76–105 | 1 frame / 2 s |
+| `20261109T034343Z-s4b-registro-sin-espacio` | extra **S4-b** | grabación de C1; registro primario sin espacio (simulado) en las muestras 166–185 | 1 frame / 2 s |
 | `20261109T005919Z-f4-vivo` | extra **F4** (10:00 JST, lluvia) | cámara en vivo con la vista en vivo publicada (90 frames) | en vivo |
 
 Las grabaciones completas (≈ 850 MB) no se versionan. Una muestra de 60 frames, la primera
@@ -97,7 +99,7 @@ Desde un clon limpio:
 ```bash
 uv sync
 uv run python -m monitor.download_model         # pesos verificados por SHA-256
-uv run pytest -q                                # 115 pruebas
+uv run pytest -q                                # 122 pruebas
 
 # 1) Recalcular desde los registros primarios versionados (sin modelo)
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
@@ -115,7 +117,7 @@ uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --l
 ```
 
 Comprobado en un clon limpio de `97469f3` (antes de los extras), descargado desde GitHub el 2026-11-08:
-- 29 pruebas pasan (hoy son 115).
+- 29 pruebas pasan (hoy son 122).
 - `evaluate` coincide en las cuatro ejecuciones.
 - Las métricas de C2 son idénticas a [`metricas/`](metricas/).
 - La muestra de C2 reproduce la ventana 1 y su alerta.
@@ -169,6 +171,10 @@ Las capturas están en [`portal/`](portal/); se tomaron con Edge headless sobre 
 | 40 | `/alertas/…s3b-persistente-inferencia-fallida-v1-f000151` | S3-b: tres recargas sin efecto, resuelta al cesar el fallo |
 | 41 | `/runs/20261109T030642Z-s3b-persistente` | S3-b: ventana 3 `insuficiente` (30 de 60 muestras válidas) |
 | 42 | `/graficas?run_id=…s3b-persistente` | F1 sobre S3-b: hueco `insuficiente` con la alerta de inferencia |
+| 43 | `/vivo` (durante S4-a) | S4-a: muestra 93, índice bloqueado; la vista en vivo sigue y muestra la alerta de telemetría |
+| 44 | `/eventos` (base bloqueada) | S4: el portal responde 503 con el motivo y el enlace a `/vivo` (antes, 500) |
+| 45 | `/alertas/…s4a-…-indice-f000076` | S4-a: 30 muestras sin índice, 31 pendientes aplicados, 0 perdidos |
+| 46 | `/alertas/…s4b-…-registro-f000166` | S4-b: 20 muestras sin registro, 41 líneas retenidas y escritas en orden, 0 perdidos |
 
 Respuestas JSON de la API en el mismo momento: [`portal/api/`](portal/api/).
 
@@ -181,6 +187,7 @@ Detalle, definiciones y control de doble conteo: [`docs/extras.md`](../docs/extr
 | **S1** interrupción y recuperación de la fuente | 10 | ejecuciones S1-R, S1-V y S1-W (tabla de arriba); [`docs/escenario-s1.md`](../docs/escenario-s1.md#resultados); capturas [`15`](portal/15-run-s1-wifi.png)–[`19`](portal/19-graficas-s1-vivo.png); [`tests/test_source_health.py`](../tests/test_source_health.py) |
 | **S2** cambio de versión del modelo | 10 | ejecución `20261108T232126Z-s2-cambio-version`; [`docs/escenario-s2.md`](../docs/escenario-s2.md#resultados); capturas [`20`](portal/20-run-s2.png)–[`22`](portal/22-graficas-s2.png); [`portal/api/alerta-version-s2.json`](portal/api/alerta-version-s2.json); [`tests/test_model_version.py`](../tests/test_model_version.py) |
 | **S3** error de inferencia | 10 | ejecuciones S3-a y S3-b (tabla de arriba, con `inferencia.jsonl`); [`docs/escenario-s3.md`](../docs/escenario-s3.md#resultados); capturas [`39`](portal/39-alerta-inferencia-s3a.png)–[`42`](portal/42-graficas-s3b.png); [`portal/api/alerta-inferencia-s3a.json`](portal/api/alerta-inferencia-s3a.json); [`tests/test_inference_health.py`](../tests/test_inference_health.py) |
+| **S4** pérdida de telemetría | 10 | ejecuciones S4-a y S4-b (tabla de arriba, con `telemetria.jsonl`); [`docs/escenario-s4.md`](../docs/escenario-s4.md#resultados); capturas [`43`](portal/43-vivo-indice-bloqueado.png)–[`46`](portal/46-alerta-telemetria-s4b.png); [`tests/test_telemetry.py`](../tests/test_telemetry.py) |
 | **F2** revisión humana de alertas y capturas | 15 | `datos/runs/*/revisiones.jsonl` (9 acciones); capturas [`23`](portal/23-revision-cola-s1-wifi.png)–[`27`](portal/27-alertas-por-revision.png); [`portal/api/revisiones.json`](portal/api/revisiones.json); [`tests/test_review.py`](../tests/test_review.py) |
 | **F3** exportación de eventos | 10 | [`exportaciones/`](exportaciones/) (4 archivos + registro, verificados con `monitor.export --verificar`); capturas [`28`](portal/28-exportar-vista-previa.png)–[`30`](portal/30-exportar-error.png); [`tests/test_export.py`](../tests/test_export.py) |
 | **F4** vista en vivo | 15 | ejecución `20261109T005919Z-f4-vivo`; capturas [`31`](portal/31-vivo-en-curso.png)–[`34`](portal/34-vivo-estancada.png); [`tests/test_live.py`](../tests/test_live.py) |

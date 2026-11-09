@@ -329,7 +329,7 @@ def verify(panel: dict, runs_dir: Path) -> list[str]:
 
 
 def connect(db_path) -> sqlite3.Connection:
-    con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True)
+    con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True, timeout=1)
     con.row_factory = sqlite3.Row
     return con
 

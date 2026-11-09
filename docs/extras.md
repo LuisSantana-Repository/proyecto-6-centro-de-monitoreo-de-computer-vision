@@ -9,6 +9,7 @@ forma de verificarlo.
 | **S1** | Escenario | Interrupción y recuperación de la fuente | 10 | completo: S1-R, S1-V y S1-W |
 | **S2** | Escenario | Cambio de versión del modelo no declarado, reacción y reversión | 10 | completo |
 | **S3** | Escenario | Error de inferencia: diagnóstico de etapa, recarga automática del modelo y su efecto verificado | 10 | completo: S3-a y S3-b |
+| **S4** | Escenario | Pérdida de telemetría: índice bloqueado o registro sin espacio, sin perder datos, verificado | 10 | completo: S4-a y S4-b |
 | **M1** | Métrica | Desplazamiento de la distribución de puntuaciones frente a la referencia (Wasserstein-1) | 8 | completo |
 | **M2** | Métrica | Latencia de punta a punta (frame → evento), p50/p95 por ejecución y por ventana | 5 | completo |
 | **M3** | Métrica | Tiempo de recuperación de la fuente y disponibilidad por ventana | 5 | completo (con S1-R, S1-V y S1-W) |
@@ -92,6 +93,32 @@ Falla la etapa del modelo mientras la fuente sigue entregando frames. Detalle, r
   [`39`](../evidencias/portal/39-alerta-inferencia-s3a.png)–[`42`](../evidencias/portal/42-graficas-s3b.png),
   [`tests/test_inference_health.py`](../tests/test_inference_health.py) (8 pruebas, una de punta a punta con
   `monitor.run` real).
+
+## S4 · Pérdida de telemetría (escenario, nivel 10)
+
+Fallan los destinos donde el monitor escribe (el índice SQLite o el registro primario JSONL) mientras la fuente
+y el modelo funcionan. Detalle, reproducción y límites: [`docs/escenario-s4.md`](escenario-s4.md).
+
+- **Por qué no es C1, C2, S1, S2 ni S3.** Lo observado está bien; falla el registro de lo observado. Agrega
+  su propia regla (`telemetria-perdida-v1`, evaluada sobre `telemetria.jsonl`), escritura con búfer y cola
+  ordenada para ambos destinos, y 503 en el portal cuando el índice está bloqueado. Antes de S4, un índice
+  bloqueado detenía el monitor con una excepción.
+- **Dos variantes con condiciones de aceptación distintas**, sobre la grabación de C1:
+  - **S4-a, índice bloqueado** (`20261109T033540Z-s4a-indice-bloqueado`). Otra conexión toma un candado
+    `EXCLUSIVE` **real** en las muestras 76–105. Hay una alerta, la cola llega a 31 operaciones, se aplica
+    sola al liberarse y queda resuelta con 0 perdidos y `duration_s` 60.0.
+  - **S4-b, registro sin espacio** (`20261109T034343Z-s4b-registro-sin-espacio`). ENOSPC simulado en las
+    muestras 166–185. Hay una alerta, el búfer llega a 41 líneas (con la ventana 3 y la propia alerta), se
+    escribe en orden y queda resuelta con 0 perdidos y `duration_s` 40.0.
+- **Verificación posterior.** Registro e índice con las 240 muestras en orden, sin huecos ni duplicados.
+  `monitor.evaluate` coincide y `monitor.dashboard --verificar` confirma índice = JSONL. Las detecciones son
+  idénticas a C1 en 240/240 muestras en ambas variantes.
+- **Costo medido.** Durante el candado, `e2e_ms` p50 sube de 105 a 870 ms (M2), pero sin retrasar ninguna
+  muestra: el espaciado se mantiene en 2.0 s.
+- **Evidencia:** registros con `telemetria.jsonl`, capturas
+  [`43`](../evidencias/portal/43-vivo-indice-bloqueado.png)–[`46`](../evidencias/portal/46-alerta-telemetria-s4b.png)
+  (la vista en vivo durante el candado y el 503 del portal), [`tests/test_telemetry.py`](../tests/test_telemetry.py)
+  (7 pruebas: candado real, búfer con pérdida explícita, regla, 503 y punta a punta para los dos destinos).
 
 ## M1 · Desplazamiento de la distribución frente a la referencia (métrica, nivel 8)
 
@@ -234,6 +261,10 @@ portal) y `/api/panel`.
   fuente sana y el modelo correcto) y es el único escenario con reacción activa del monitor (recargar el
   modelo) cuyo efecto se verifica. S3-a y S3-b son un mismo escenario con dos condiciones de aceptación
   (la reacción arregla el fallo o no lo arregla); se reclaman como un solo extra.
+- S4 usa M2 (latencia) para medir el costo del índice bloqueado, pero no la reclama otra vez, y su
+  verificación reutiliza `monitor.dashboard --verificar` (F5) sin cobrarlo de nuevo. Lo que se reclama es el
+  escenario: la regla de telemetría, los búferes con reintento, el 503 del portal y la comprobación de que
+  no se pierde nada. S4-a y S4-b se reclaman como un solo extra.
 - F2 no repite F1 ni las vistas base: agrega acciones humanas con estado, persistencia y reglas de
   transición. Las capturas y alertas que revisa son las mismas de C1, C2, S1 y S2, que no se vuelven
   a contar.

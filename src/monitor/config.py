@@ -52,6 +52,11 @@ def load_config(path: str | Path) -> dict:
                or ih.get("reload_after", 1) < 1 or ih.get("reload_every", 1) < 1 or ih.get("max_reloads", 0) < 0):
         raise ValueError("inference_health: consecutive_errors, recover_after_ok, reload_after y reload_every deben "
                          "ser >= 1 y max_reloads >= 0")
+    tl = cfg.get("telemetry_health")
+    if tl and (tl["consecutive_failures"] < 1 or tl["recover_after_ok"] < 1 or tl.get("max_buffer", 1) < 1
+               or tl.get("index_timeout_s", 1) <= 0):
+        raise ValueError("telemetry_health: consecutive_failures, recover_after_ok y max_buffer deben ser >= 1 "
+                         "e index_timeout_s > 0")
     for name, alt in (cfg.get("model_alternatives") or {}).items():
         if not {"weights", "sha256"} <= set(alt):
             raise ValueError(f"model_alternatives.{name}: faltan weights o sha256")

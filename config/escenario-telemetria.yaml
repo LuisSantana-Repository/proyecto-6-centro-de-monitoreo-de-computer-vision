@@ -1,0 +1,18 @@
+# Escenario S4 · Pérdida de telemetría: fallan los destinos donde el monitor escribe (índice SQLite o registro
+# primario JSONL) mientras la fuente y el modelo funcionan. Hereda TODO de monitor.yaml y solo agrega la regla
+# de salud de la telemetría. monitor.yaml (cfg-0b5e664b118c) no cambia.
+base: monitor.yaml
+
+telemetry_health:
+  rule_id: telemetria-perdida-v1
+  consecutive_failures: 2       # 2 muestras seguidas con un destino sin poder escribir abren la alerta (por destino)
+  recover_after_ok: 3           # 3 muestras escribiendo y sin pendientes la resuelven
+  severity: critical
+  max_buffer: 1000              # líneas del registro primario que se retienen en memoria; más allá se cuentan perdidas
+  index_timeout_s: 0.25         # espera máxima de una escritura al índice bloqueado (no frena el muestreo)
+  suggested_action: >-
+    Un destino de escritura no responde. Si es el índice (SQLite), buscar el proceso que tiene la base bloqueada;
+    el registro primario sigue completo, el portal no ve lo nuevo hasta que se libere y la cola se aplica sola en
+    orden (si el monitor termina antes, monitor.ingest lo recupera). Si es el registro primario (JSONL), liberar
+    espacio o permisos en datos/runs: las líneas esperan en memoria hasta max_buffer y después se pierden, con
+    conteo explícito.

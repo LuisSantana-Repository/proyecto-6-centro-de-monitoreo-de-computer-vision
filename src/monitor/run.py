@@ -8,6 +8,7 @@ Uso:
   uv run python -m monitor.run --config config/escenario-interrupcion.yaml --frames 240       --inject-outage 180:90 --label s1                                      # escenario S1: corte de la fuente
   uv run python -m monitor.run --config config/escenario-version.yaml --replay ... --frames 240       --swap-model yolo11s:150:210 --label s2                                # escenario S2: cambio de versión
   uv run python -m monitor.run --config config/escenario-inferencia.yaml --replay ... --frames 240 --inject-inference-error corrupcion:150 --label s3a   # escenario S3: error de inferencia
+  uv run python -m monitor.run --config config/escenario-telemetria.yaml --replay ... --frames 240 --inject-telemetry-loss indice:150:60 --label s4a   # escenario S4: pérdida de telemetría
 """
 
 from __future__ import annotations
@@ -26,11 +27,12 @@ import psutil
 from monitor.alerts import InferenceHealthMonitor, ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
 from monitor.config import config_ref, load_config, sha256_file
 from monitor.detector import Detector, InferenceFault, SwapPlan
-from monitor.events import Detection, EventWriter, InferenceEvent
+from monitor.events import Detection, InferenceEvent
 from monitor.live import LiveWriter
 from monitor.policy import LOW, zone, zone_counts
 from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource, utc_now_iso
 from monitor.store import Store
+from monitor.telemetry import BufferedLog, IndexSink, SinkStatus, TelemetryFault, TelemetryMonitor
 
 
 def environment() -> dict:
@@ -79,18 +81,6 @@ class ResourceProbe:
         }
 
 
-class JsonlLog:
-    def __init__(self, path: Path):
-        self._f = open(path, "a", encoding="utf-8")
-
-    def write(self, rec: dict) -> None:
-        self._f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        self._f.flush()
-
-    def close(self) -> None:
-        self._f.close()
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="config/monitor.yaml")
@@ -109,6 +99,9 @@ def main() -> None:
     ap.add_argument("--inject-inference-error", default=None, metavar="MODO:INICIO[:DURACION]",
                     help="escenario S3: corrupcion:INICIO (estado del modelo corrupto; la recarga lo arregla) o "
                          "persistente:INICIO:DURACION (la inferencia falla durante el intervalo)")
+    ap.add_argument("--inject-telemetry-loss", default=None, metavar="DESTINO:INICIO:DURACION",
+                    help="escenario S4: indice (candado exclusivo real sobre SQLite) o registro (disco lleno "
+                         "simulado para los JSONL) de INICIO a INICIO+DURACION segundos de stream")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -132,6 +125,8 @@ def main() -> None:
 
     fault = FaultPlan.parse(args.inject_outage) if args.inject_outage else None
     ifault = InferenceFault.parse(args.inject_inference_error) if args.inject_inference_error else None
+    tfault = TelemetryFault.parse(args.inject_telemetry_loss) if args.inject_telemetry_loss else None
+    th = cfg.get("telemetry_health") or {}
     if args.replay:
         source = ReplaySource(cfg, args.replay, pace=not args.no_pace, fault=fault)
     else:
@@ -178,17 +173,26 @@ def main() -> None:
         "fault_injection": fault.as_dict() if fault else None,
         "model_swap": swap_info,
         "inference_fault": ifault.as_dict() if ifault else None,
+        "telemetry_fault": tfault.as_dict() if tfault else None,
     }
-    writer = EventWriter(run_dir / "events.jsonl")
-    win_log = JsonlLog(run_dir / "windows.jsonl")
-    alert_log = JsonlLog(run_dir / "alerts.jsonl")
-    health_log = JsonlLog(run_dir / "fuente.jsonl")
+    # S4: el registro primario y el índice escriben con búfer / cola; un fallo no detiene el monitor
+    stream_t = {"t": 0.0}
+    reg_status, idx_status = SinkStatus(), SinkStatus()
+    JsonlLog = lambda name: BufferedLog(run_dir / name, reg_status, tfault, lambda: stream_t["t"],
+                                        th.get("max_buffer", 1000))
+    writer = JsonlLog("events.jsonl")
+    win_log = JsonlLog("windows.jsonl")
+    alert_log = JsonlLog("alerts.jsonl")
+    health_log = JsonlLog("fuente.jsonl")
+    tel_log = JsonlLog("telemetria.jsonl") if (th or tfault) else None
+    telemetry = TelemetryMonitor(cfg, cref, run_id)
     evaluator = WindowEvaluator(cfg, cref, run_id)
     health = SourceHealthMonitor(cfg, cref, run_id)
     version = ModelVersionMonitor(cfg, cref, run_id)
     inference = InferenceHealthMonitor(cfg, cref, run_id)
     # S3: registro de la reacción (recargas del modelo y su efecto); solo si la regla o el fallo existen
-    inf_log = JsonlLog(run_dir / "inferencia.jsonl") if (cfg.get("inference_health") or ifault) else None
+    inf_log = JsonlLog("inferencia.jsonl") if (cfg.get("inference_health") or ifault) else None
+    logs = [x for x in (writer, win_log, alert_log, health_log, tel_log, inf_log) if x]
     probe = ResourceProbe(run_dir)
     manifest["environment"]["cpu_count_logical"] = psutil.cpu_count()
     manifest["environment"]["ram_total_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
@@ -204,15 +208,16 @@ def main() -> None:
 
     source.start()
     manifest["source_meta"] = source.stats.stream_meta
-    store = Store(cfg["output"]["db"])
+    store = Store(cfg["output"]["db"], timeout=th.get("index_timeout_s", 5.0))
     store.upsert_config(cref, cfg)
     store.upsert_run(manifest)
+    index = IndexSink(store, idx_status)
 
     def drain_source_health() -> None:
         for h in source.drain_health():
             rec = {"run_id": run_id, **h}
             health_log.write(rec)
-            store.insert_source_event(rec)
+            index.do("insert_source_event", rec)
             ok_types = ("conectado", "reconectado", "lectura_recuperada")
             live_ctx["source"] = {"estado": "conectada" if h["type"] in ok_types else "con_fallas",
                                   "ultimo": h["type"], "at": h["at"],
@@ -222,14 +227,14 @@ def main() -> None:
     def handle_alerts(new_alerts, updates) -> None:
         for a in new_alerts:
             alert_log.write({"type": "alert", **a})
-            store.insert_alert(a)
+            index.do("insert_alert", a)
             live_ctx["open_alerts"][a["alert_id"]] = {k: a[k] for k in ("alert_id", "rule_id", "severity",
                                                                          "timestamp", "reason")}
             counts["alerts"] += 1
             print(f"  !! ALERTA {a['severity']} {a['rule_id']}: {a['reason']}")
         for u in updates:
             alert_log.write({"type": "update", **u})
-            store.update_alert(u)
+            index.do("update_alert", u)
             if u.get("status") == "resolved":
                 live_ctx["open_alerts"].pop(u["alert_id"], None)
                 print(f"  -- alerta resuelta: {u['alert_id']}")
@@ -240,7 +245,7 @@ def main() -> None:
             return
         rec = win.record()
         win_log.write(rec)
-        store.insert_window(rec)
+        index.do("insert_window", rec)
         counts["windows"] += 1
         live_ctx["last_window"] = {k: rec[k] for k in ("window_id", "idx", "state", "low_ratio", "mean_score",
                                                         "n_valid", "n_eligible")}
@@ -273,6 +278,14 @@ def main() -> None:
     try:
         for fr in source.frames(args.frames):
             frame_id = f"{run_id}-f{fr.seq:06d}"
+            stream_t["t"] = (fr.seq - 1) * interval
+            reg_status.reset()
+            idx_status.reset()
+            if tfault:
+                tfault.drive_index_lock(store.path, stream_t["t"])
+            for lg in logs:                       # reintenta lo atrasado antes de escribir lo nuevo
+                lg.flush()
+            index.flush()
             dets, timings, err = [], {}, None
             det = alt_detector if (swap and swap.active_at((fr.seq - 1) * interval)) else detector
             if fr.image is None:
@@ -325,8 +338,8 @@ def main() -> None:
                 capture_reason=reason,
                 error=err,
             )
-            writer.write(ev)        # registro primario (JSONL, recalculable)
-            store.insert_event(ev)  # consulta en el portal
+            writer.write(ev)                 # registro primario (JSONL, recalculable)
+            index.do("insert_event", ev)     # consulta en el portal
             counts[status] += 1
             print(
                 f"  #{fr.seq:4d} {status:14s} det={len(dets):3d} "
@@ -344,6 +357,18 @@ def main() -> None:
             if want_reload:
                 detector = reload_model(ev) or detector
             handle_window(evaluator.add(ev))
+            if tel_log:                           # S4: estado de cada destino en esta muestra
+                obs = {"seq": fr.seq, "at": fr.captured_at,
+                       "indice": {"ok": not idx_status.failed, "pendientes": len(index.queue),
+                                  "error": idx_status.error, "perdidos": 0},
+                       "registro": {"ok": not reg_status.failed, "pendientes": sum(len(x.pending) for x in logs),
+                                    "error": reg_status.error, "perdidos": reg_status.lost}}
+                tel_log.write(obs)
+                handle_alerts(*telemetry.add(obs))
+                if not (obs["indice"]["ok"] and obs["registro"]["ok"]):
+                    print(f"  ** telemetría: índice {'ok' if obs['indice']['ok'] else 'FALLA'} "
+                          f"({obs['indice']['pendientes']} pendientes) · registro "
+                          f"{'ok' if obs['registro']['ok'] else 'FALLA'} ({obs['registro']['pendientes']} pendientes)")
             if live:
                 live.update(ev, fr.image, evaluator.buf, live_ctx["last_window"], live_ctx["open_alerts"],
                             live_ctx["source"], counts)
@@ -353,12 +378,19 @@ def main() -> None:
         handle_window(evaluator.flush())
         source.stop()
         drain_source_health()
-        health_log.close()
-        writer.close()
-        win_log.close()
-        alert_log.close()
-        if inf_log:
-            inf_log.close()
+        if tfault:
+            tfault.release()                      # termina el proceso que bloqueaba la base (simulado)
+        stream_t["t"] = float("inf")              # fuera de cualquier intervalo inyectado
+        for lg in logs:
+            lg.close()
+        index.flush()
+        manifest["telemetry"] = {"registro_lineas_escritas": reg_status.written, "registro_perdidas": reg_status.lost,
+                                 "registro_pendientes_al_cerrar": sum(len(x.pending) for x in logs),
+                                 "indice_operaciones": idx_status.written,
+                                 "indice_pendientes_al_cerrar": len(index.queue)}
+        if index.queue:
+            print(f"  ** {len(index.queue)} operaciones del índice quedaron pendientes: reconstruir con "
+                  f"monitor.ingest (el registro primario está completo)")
         manifest["finished_at"] = utc_now_iso()
         manifest["counts"] = counts
         if live:

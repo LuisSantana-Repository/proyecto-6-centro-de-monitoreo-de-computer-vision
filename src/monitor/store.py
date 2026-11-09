@@ -137,10 +137,12 @@ CREATE TABLE IF NOT EXISTS ingest_log (
 
 
 class Store:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, timeout: float = 5.0):
+        """timeout: cuánto espera una escritura si otra conexión tiene la base bloqueada (S4 usa uno corto
+        para que un índice bloqueado no frene el muestreo)."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.path = str(path)
-        self.con = sqlite3.connect(self.path, check_same_thread=False)
+        self.con = sqlite3.connect(self.path, timeout=timeout, check_same_thread=False)
         self.con.row_factory = sqlite3.Row
         self.con.executescript(SCHEMA)
         # migración: bases creadas antes del escenario S1 no tienen esta columna
@@ -216,7 +218,8 @@ class Store:
                  "resolution_json")
     # detalle de la resolución: regla de la fuente (S1) y regla de versión (S2)
     RESOLUTION = ("n_invalid", "downtime_s", "n_mismatch", "duration_s", "reported_model_refs", "first_ok_event_id",
-                  "n_errors", "n_reloads", "reload_effective", "recovered_by")   # ... y de inferencia (S3)
+                  "n_errors", "n_reloads", "reload_effective", "recovered_by",   # ... de inferencia (S3)
+                  "sink", "n_failed", "max_pending", "lost", "recovered_at_seq")  # ... y de telemetría (S4)
 
     def update_alert(self, upd: dict) -> None:
         res = {k: upd[k] for k in self.RESOLUTION if k in upd}

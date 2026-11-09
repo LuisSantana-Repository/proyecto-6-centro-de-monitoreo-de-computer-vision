@@ -50,8 +50,24 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
     templates.env.filters["fromjson"] = json.loads
     templates.env.filters["pretty"] = lambda v: json.dumps(v, indent=2, ensure_ascii=False)  # autoescapado por Jinja
 
+    @app.exception_handler(sqlite3.OperationalError)
+    async def index_unavailable(request: Request, exc: sqlite3.OperationalError):
+        """S4: si otro proceso bloquea el índice, las vistas responden 503 con el motivo en vez de un 500.
+        El registro primario (JSONL) no depende del índice, y la vista en vivo (/vivo) no lo lee."""
+        locked = "locked" in str(exc) or "busy" in str(exc)
+        msg = ("El índice (SQLite) está bloqueado por otro proceso" if locked else f"El índice no responde ({exc})")
+        hint = ("El monitor sigue registrando en datos/runs/ y encola lo que falta del índice; "
+                "la vista en vivo (/vivo) sigue funcionando. Reintenta en unos segundos.")
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"detail": f"{msg}. {hint}"}, status_code=503, headers={"Retry-After": "5"})
+        return HTMLResponse(f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Índice no disponible</title>
+<meta http-equiv="refresh" content="5"></head><body style="font:15px system-ui;margin:40px;max-width:760px;color:#1f2d3a">
+<h1 style="color:#b3261e;font-size:20px">503 · {msg}</h1><p>{hint}</p>
+<p><a href="/vivo">Ir a la vista en vivo</a> · la página se recarga cada 5 s.</p></body></html>""",
+                            status_code=503, headers={"Retry-After": "5"})
+
     def rows(sql: str, params=()) -> list[dict]:
-        con = sqlite3.connect(db_uri, uri=True)
+        con = sqlite3.connect(db_uri, uri=True, timeout=1)   # índice bloqueado (S4): 503 en ~1 s
         con.row_factory = sqlite3.Row
         try:
             return [dict(r) for r in con.execute(sql, params).fetchall()]
@@ -531,7 +547,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         lr, ms, w = d["low_ratio"], d["mean_score"], d["w1"]
 
         def only(points, rule):     # cada gráfica marca las alertas de su regla, de la fuente y de versión
-            keep = lambda r: r.startswith(("fuente-", "version-", "inferencia-")) or (rule is not None and r == rule["rule_id"])
+            keep = lambda r: r.startswith(("fuente-", "version-", "inferencia-", "telemetria-")) or (rule is not None and r == rule["rule_id"])
             return [{**p, "alerts": [r for r in p["alerts"] if keep(r)]} for p in points]
 
         lr["points"] = only(lr["points"], lr["rule"])

@@ -49,6 +49,7 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`drift.py`](src/monitor/drift.py) | Métrica adicional M1: W1 de las puntuaciones frente a la referencia |
 | [`agreement.py`](src/monitor/agreement.py) | Métrica adicional M4: acuerdo con un modelo de referencia sobre los mismos frames (medir, referencia, comparar, degradar) |
 | [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana, revisión humana |
+| [`history.py`](src/monitor/history.py) | Extra F6: series históricas por ventana (por ejecución o por hora de la escena) y su verificación contra los registros primarios |
 | [`dashboard.py`](src/monitor/dashboard.py) | Extra F5: panel de operación (indicadores, reglas de atención, estado por ejecución) y su verificación contra los registros primarios |
 | [`telemetry.py`](src/monitor/telemetry.py) | Extra S4: escritura con búfer del registro primario, cola ordenada del índice y regla `telemetria-perdida-v1` |
 | [`live.py`](src/monitor/live.py) | Extra F4: estado en vivo que publica `monitor.run` (`datos/vivo/<run_id>/`) y su clasificación para `/vivo` |
@@ -207,6 +208,7 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | F3 | Funcionalidad: exportación de eventos y detecciones con procedencia y verificación (`/exportar`) | 10 |
 | F4 | Funcionalidad: vista en vivo del stream con resultados y estado de la ejecución (`/vivo`) | 15 |
 | F5 | Funcionalidad: panel de operación de todas las ejecuciones, con puntos de atención y verificación (`/panel`) | 10 |
+| F6 | Funcionalidad: gráficas históricas de todas las ejecuciones, por ejecución o por hora de la escena, con verificación (`/historico`) | 10 |
 
 **S1 en resumen.** Tres variantes con la misma regla `fuente-interrumpida-v1`. En las tres se abre
 una alerta crítica, que se resuelve sola, la ventana del corte queda `insuficiente` y

@@ -2,7 +2,7 @@
 
 **Estudiante:** Luis Santana · **Entrega:** individual · **Configuración:** `cfg-0b5e664b118c`
 ([`config/monitor.yaml`](../config/monitor.yaml)) · **Modelo:** `yolo11n@sha256:0ebbc80d4a76`
-([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, S4, M1, M2, M3, M4, F1, F2, F3, F4 y F5 ([`docs/extras.md`](../docs/extras.md);
+([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, S4, M1, M2, M3, M4, F1, F2, F3, F4, F5 y F6 ([`docs/extras.md`](../docs/extras.md);
 sección [Extras](#extras) abajo).
 
 ## Revisiones Git
@@ -102,7 +102,7 @@ Desde un clon limpio:
 ```bash
 uv sync
 uv run python -m monitor.download_model         # pesos verificados por SHA-256
-uv run pytest -q                                # 132 pruebas
+uv run pytest -q                                # 138 pruebas
 
 # 1) Recalcular desde los registros primarios versionados (sin modelo)
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
@@ -111,6 +111,7 @@ uv run python -m monitor.metrics  datos/runs/20261108T163302Z-c2-baja-confianza 
 # 2) Portal sobre las ejecuciones oficiales
 uv run python -m monitor.ingest                 # crea datos/monitor.db desde datos/runs/
 uv run python -m monitor.dashboard --verificar  # el panel (F5) coincide con los JSONL de cada ejecución
+uv run python -m monitor.history --verificar    # el histórico (F6) coincide con los JSONL: 4 señales × 2 ejes
 uv run python -m monitor.portal                 # http://127.0.0.1:8000 (abre en /panel)
 
 # 3) Reproducir la inferencia sobre la muestra (60 frames = 1 ventana; ~1 min)
@@ -120,7 +121,7 @@ uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --l
 ```
 
 Comprobado en un clon limpio de `97469f3` (antes de los extras), descargado desde GitHub el 2026-11-08:
-- 29 pruebas pasan (hoy son 132).
+- 29 pruebas pasan (hoy son 138).
 - `evaluate` coincide en las cuatro ejecuciones.
 - Las métricas de C2 son idénticas a [`metricas/`](metricas/).
 - La muestra de C2 reproduce la ventana 1 y su alerta.
@@ -181,6 +182,10 @@ Las capturas están en [`portal/`](portal/); se tomaron con Edge headless sobre 
 | 47 | `/graficas?run_id=…m4-desenfoque` | M4: las dos ventanas desenfocadas caen bajo el piso de la referencia |
 | 48 | `/graficas?run_id=…s2-cambio-version` | M4 sobre S2: acuerdo 1.0 en la ventana en que producción es yolo11s |
 | 49 | `/graficas?run_id=…c2-baja-confianza` | M4 sobre C2: la baja confianza sube y el acuerdo no |
+| 50 | `/historico` | F6: baja confianza por ventana de las 14 ejecuciones versionadas (base reconstruida) |
+| 51 | `/historico?eje=hora` | F6: la misma señal por hora de la escena (JST): pesa más el día que la hora |
+| 52 | `/historico?senal=inferencia_p95&modo=replay` | F6: inferencia p95 sobre los mismos frames, de 300–420 ms (8 nov) a 120–175 ms (9 nov) |
+| 53 | `/historico?senal=fps&eje=dia` | F6: filtro no válido, 422 con el motivo |
 
 Respuestas JSON de la API en el mismo momento: [`portal/api/`](portal/api/).
 
@@ -198,6 +203,7 @@ Detalle, definiciones y control de doble conteo: [`docs/extras.md`](../docs/extr
 | **F3** exportación de eventos | 10 | [`exportaciones/`](exportaciones/) (4 archivos + registro, verificados con `monitor.export --verificar`); capturas [`28`](portal/28-exportar-vista-previa.png)–[`30`](portal/30-exportar-error.png); [`tests/test_export.py`](../tests/test_export.py) |
 | **F4** vista en vivo | 15 | ejecución `20261109T005919Z-f4-vivo`; capturas [`31`](portal/31-vivo-en-curso.png)–[`34`](portal/34-vivo-estancada.png); [`tests/test_live.py`](../tests/test_live.py) |
 | **F5** panel de operación | 10 | capturas [`35`](portal/35-panel.png)–[`38`](portal/38-panel-base-local.png); [`panel/`](panel/) (verificación contra los JSONL: coincide en la base reconstruida, falla en la local); [`portal/api/panel.json`](portal/api/panel.json); [`tests/test_dashboard.py`](../tests/test_dashboard.py) |
+| **F6** gráficas históricas | 10 | capturas [`50`](portal/50-historico-por-ejecucion.png)–[`53`](portal/53-historico-filtro-invalido.png); [`historico/`](historico/) (verificación contra los JSONL: coincide en la base reconstruida, falla en la local donde F5 marca E4); [`portal/api/historico-hora.json`](portal/api/historico-hora.json); [`tests/test_history.py`](../tests/test_history.py) |
 | **M1** desplazamiento de la distribución (W1) | 8 | [`config/referencia-distribucion.json`](../config/referencia-distribucion.json); `metricas_adicionales` en [`metricas/`](metricas/); [`tests/test_drift.py`](../tests/test_drift.py) |
 | **M2** latencia de punta a punta | 5 | `metricas_adicionales.M2_latencia_e2e` y `ventanas[].M2_e2e_p95_ms` en [`metricas/`](metricas/) |
 | **M3** recuperación de la fuente y disponibilidad | 5 | `metricas_adicionales.M3_recuperacion_fuente` de las tres ejecuciones de S1 |

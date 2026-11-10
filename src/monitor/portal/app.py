@@ -25,10 +25,11 @@ from fastapi.templating import Jinja2Templates
 from monitor import dashboard as panelmod
 from monitor import agreement, drift
 from monitor import export as exporter
+from monitor import history as histmod
 from monitor import live as livemod
 from monitor.config import load_config
 from monitor.draw import draw_detections
-from monitor.portal.charts import window_chart
+from monitor.portal.charts import history_chart, window_chart
 from monitor.review import (CAPTURE_LABELS, VERDICTS, ReviewError, ReviewLog, alert_state, capture_state,
                             check_alert_action, check_capture_review)
 from monitor.source import ANSI
@@ -228,6 +229,37 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
     def api_panel(request: Request):
         try:
             return panel(dict(request.query_params))
+        except panelmod.PanelError as e:
+            raise HTTPException(e.status, e.message)
+
+    # -- gráficas históricas (F6) ------------------------------------------------
+    def history_series(params: dict) -> dict:
+        f = histmod.HistoryFilter.from_params(params)          # PanelError (422) si un filtro no es válido
+        con = panelmod.connect(db_path)
+        try:
+            return histmod.build(histmod.from_index(con), f)
+        finally:
+            con.close()
+
+    @app.get("/historico", response_class=HTMLResponse)
+    def history_page(request: Request):
+        params = dict(request.query_params)
+        ctx = {"f": {"senal": "low_ratio", "eje": "ejecucion", **params}, "signals": histmod.SIGNALS,
+               "axes": histmod.AXES, "modes": panelmod.MODES,
+               "any_runs": bool(one("SELECT 1 AS x FROM runs LIMIT 1"))}
+        try:
+            d = history_series(params)
+        except panelmod.PanelError as e:
+            return templates.TemplateResponse(request, "historico.html", {**ctx, "error": e.message, "d": None},
+                                              status_code=e.status)
+        return templates.TemplateResponse(request, "historico.html", {**ctx, "error": "", "d": d,
+                                                                      "chart": history_chart(d),
+                                                                      "qs": urlencode(d["filtros"])})
+
+    @app.get("/api/historico")
+    def api_history(request: Request):
+        try:
+            return history_series(dict(request.query_params))
         except panelmod.PanelError as e:
             raise HTTPException(e.status, e.message)
 

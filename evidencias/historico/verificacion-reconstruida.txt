@@ -1,0 +1,10 @@
+  low_ratio       ejecucion    75 puntos · coincide
+  low_ratio       hora         71 puntos · coincide
+  mean_score      ejecucion    75 puntos · coincide
+  mean_score      hora         71 puntos · coincide
+  inferencia_p95  ejecucion    81 puntos · coincide
+  inferencia_p95  hora         77 puntos · coincide
+  validos         ejecucion    81 puntos · coincide
+  validos         hora         77 puntos · coincide
+Las series del histórico coinciden con los registros primarios.
+exit 0

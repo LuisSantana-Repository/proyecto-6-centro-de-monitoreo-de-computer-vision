@@ -19,6 +19,7 @@ forma de verificarlo.
 | **F3** | Funcionalidad | Exportación de eventos y detecciones (CSV/JSONL) con filtros, procedencia y verificación | 10 | completo |
 | **F4** | Funcionalidad | Vista en vivo del stream con resultados, estado de la ejecución y de la fuente | 15 | completo |
 | **F5** | Funcionalidad | Panel de operación (dashboard): indicadores, puntos de atención, estado por ejecución y por regla, verificado contra los JSONL | 10 | completo |
+| **F6** | Funcionalidad | Gráficas históricas: una señal por ventana a través de todas las ejecuciones, por ejecución o por hora de la escena, verificadas contra los JSONL | 10 | completo |
 
 ---
 
@@ -260,6 +261,25 @@ portal) y `/api/panel`.
 | **Pruebas** | [`tests/test_dashboard.py`](../tests/test_dashboard.py), 8 pruebas sobre cinco ejecuciones escritas como JSONL e indexadas con `Store.ingest_run_dir`, con la vista en vivo de dos de ellas. Cubren: indicadores y filas (con un evento reenviado que no se cuenta dos veces y la mediana interpolada); las siete reglas de atención y su orden, y cómo cambian al cerrar o reconocer una revisión; el estado coordinado de cada ejecución; los filtros y sus cuatro errores; la verificación (coincide, detecta un JSONL modificado sin reindexar y una carpeta borrada, con E4); las vistas, la API, la recarga automática, el 422 que conserva el filtro, los dos estados vacíos; y la CLI `--verificar` con salida 0 y 1. |
 | **Por qué nivel 10** | Consulta parametrizada sobre lo persistido, resultados verificados contra los registros primarios y estados vacíos y erróneos probados. Las reglas de atención combinan el estado de las alertas, de la revisión (F2) y de la vista en vivo (F4), pero esos estados ya se cobraron en F2 y F4, así que no se usan para pedir 15. |
 
+## F6 · Gráficas históricas (funcionalidad, nivel 10)
+
+Flujo compuesto con consulta parametrizada, persistencia pertinente y verificación de resultados y de
+estados vacíos o erróneos. Código: [`src/monitor/history.py`](../src/monitor/history.py), la gráfica
+`history_chart` en [`charts.py`](../src/monitor/portal/charts.py), la plantilla
+[`historico.html`](../src/monitor/portal/templates/historico.html) y las rutas `/historico` y `/api/historico`.
+
+| | |
+|---|---|
+| **Qué hace** | Una señal por ventana a través de **todas** las ejecuciones; F1 muestra las ventanas de una sola. **Señal**: proporción de baja confianza (G4), puntuación media, inferencia p95 por ventana (G1) o proporción de frames con inferencia válida. **Eje**: por ejecución (una columna por ejecución, en orden de inicio, con sus ventanas unidas por una línea) o por **hora del día de la escena en Shibuya (JST)**, para comparar la señal según la hora sin importar cuándo se procesó. **Filtros**: modo, rango de fecha de inicio y texto en la etiqueta. Cada punto enlaza a su ejecución y tiene un tooltip con la ventana, el valor, el estado y la hora de la escena. Abajo, una tabla por ejecución (también la vista accesible de los datos): hora de la escena, ventanas con valor, mínimo, media, máximo y alertas de la regla de esa señal. |
+| **Hora de la escena** | En vivo es exacta (`captured_at`). En un replay se reconstruye: el nombre de la grabación empieza con su hora de inicio (UTC) y cada muestra está a `sample_interval_s` de la anterior. Contra las cuatro grabaciones locales (con sus `captured_at` reales), el error es de 5–40 s al inicio y de 2.3 min como máximo al final, por el arranque y una pequeña deriva acumulada: despreciable en un eje de 24 h. Una grabación sin hora en el nombre (la de M4) se excluye del eje `hora` y se cuenta. |
+| **Valores y exclusiones** | Baja confianza y media solo en ventanas evaluadas (`normal`, `fuera_de_rango`), igual que F1 y las reglas. Inferencia p95 (por rango más cercano, como G1) y frames válidos en toda ventana completa. Lo excluido se cuenta por motivo (incompleta, insuficiente, otra versión, sin hora de escena) y nunca se grafica como 0. El umbral de la regla se dibuja solo si todas las ejecuciones filtradas usan el mismo. |
+| **Persistencia y verificación** | Solo lee: el índice SQLite en modo de solo lectura. No guarda estado propio. `python -m monitor.history --verificar` recalcula las **4 señales × 2 ejes** desde `manifest.json`, `windows.jsonl`, `events.jsonl` y `alerts.jsonl`, sin SQLite, y compara cada punto (valor, hora de escena, cruce del umbral) y cada fila. Sale con 1 y la lista de diferencias si algo no coincide. |
+| **Estados vacíos y errores** | Sin ejecuciones: mensaje con los comandos. Ninguna ejecución con los filtros: mensaje y enlace para quitarlos. Ninguna ventana con valor: "Ninguna ventana con valor para estos filtros". Señal, eje o modo desconocidos, fecha que no es ISO 8601, rango invertido o parámetro desconocido: 422 con el motivo y el formulario conservado; en la API, 422 con `detail`. |
+| **Uso con datos reales** | **Base reconstruida desde lo versionado**: 14 ejecuciones, 75 ventanas con valor en baja confianza; la verificación coincide en las 8 combinaciones ([`verificacion-reconstruida.txt`](../evidencias/historico/verificacion-reconstruida.txt), [`50`](../evidencias/portal/50-historico-por-ejecucion.png), [`portal/api/historico-hora.json`](../evidencias/portal/api/historico-hora.json)). **Lo que deja ver y no se ve en una sola ejecución**: (1) por hora de la escena ([`51`](../evidencias/portal/51-historico-hora-escena.png)), la baja confianza depende más del **día** que de la hora: las 07:00 del 8 de noviembre dan 0.555 de media, y las 07:30–07:50 del 9, 0.73–0.76 (ese día, a las 10:00, F4 registró lluvia); la tarde, 0.64–0.65, y la noche, 0.74. (2) La inferencia p95 sobre los **mismos frames de C1** bajó de 300–420 ms (8 de noviembre) a 120–175 ms (S3 y S4, 9 de noviembre) con el mismo modelo ([`52`](../evidencias/portal/52-historico-inferencia-replay.png)); no se aisló la causa (carga del equipo). **Error**: `senal=fps&eje=dia` da 422 ([`53`](../evidencias/portal/53-historico-filtro-invalido.png)). **Base de trabajo local**: la verificación falla justo en las dos ejecuciones sin registros primarios que F5 ya marcaba con E4 ([`verificacion-base-local.txt`](../evidencias/historico/verificacion-base-local.txt)). |
+| **Reproducir** | `uv run python -m monitor.ingest` y luego `uv run python -m monitor.history --verificar` (o abrir `/historico`). Con `--senal`, `--eje`, `--modo`, `--desde`, `--hasta` y `--etiqueta` se aplican los mismos filtros de la página. |
+| **Pruebas** | [`tests/test_history.py`](../tests/test_history.py), 6 pruebas sobre tres ejecuciones escritas como JSONL e indexadas (en vivo, replay con hora en la grabación y replay sin hora). Cubren los seis errores de filtro; valores, exclusiones por motivo, cruce del umbral, hora de la escena exacta y aproximada y la exclusión del eje `hora`; las otras señales (p95 por rango más cercano, válidos) y los filtros; la verificación (coincide en las 8 combinaciones, detecta un JSONL distinto del índice y una carpeta sin registros); la página, la API, el 422 y los estados vacíos; y la CLI `--verificar` con salida 0 y 1. |
+| **Por qué nivel 10** | Consulta parametrizada sobre lo persistido, resultados verificados contra los registros primarios y estados vacíos y erróneos probados. No coordina estados ni integra otra fuente, así que no se pide 15. |
+
 ## Control de doble conteo
 
 - M1 y la regla `cambio-sostenido-v1` (R3.3) usan la misma población, pero M1 compara distribuciones
@@ -285,6 +305,9 @@ portal) y `/api/panel`.
   con las de otro modelo sobre los mismos frames (en C2 la confianza baja y el acuerdo no cambia). Usa la
   ejecución de S2 como uno de sus casos de verificación, sin volver a reclamar S2. Su serie en `/graficas`
   amplía F1, que no se cobra otra vez.
+- F6 no repite F1 ni F5: F1 grafica las ventanas de una sola ejecución y F5 cuenta estados sin series. F6
+  compara la misma señal entre ejecuciones y por hora de la escena, con su propia verificación. Usa las
+  métricas base G1 y G4 por ventana, que no se cobran; tampoco reclama M4 ni W1, que no grafica.
 - F2 no repite F1 ni las vistas base: agrega acciones humanas con estado, persistencia y reglas de
   transición. Las capturas y alertas que revisa son las mismas de C1, C2, S1 y S2, que no se vuelven
   a contar.

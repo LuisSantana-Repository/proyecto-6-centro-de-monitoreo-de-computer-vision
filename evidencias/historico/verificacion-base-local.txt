@@ -1,0 +1,26 @@
+  low_ratio       ejecucion    78 puntos · 2 diferencias
+  low_ratio       hora         74 puntos · 2 diferencias
+  mean_score      ejecucion    78 puntos · 2 diferencias
+  mean_score      hora         74 puntos · 2 diferencias
+  inferencia_p95  ejecucion    85 puntos · 2 diferencias
+  inferencia_p95  hora         81 puntos · 2 diferencias
+  validos         ejecucion    85 puntos · 2 diferencias
+  validos         hora         81 puntos · 2 diferencias
+NO coincide con los JSONL:
+  inferencia_p95/ejecucion: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  inferencia_p95/ejecucion: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+  inferencia_p95/hora: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  inferencia_p95/hora: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+  low_ratio/ejecucion: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  low_ratio/ejecucion: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+  low_ratio/hora: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  low_ratio/hora: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+  mean_score/ejecucion: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  mean_score/ejecucion: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+  mean_score/hora: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  mean_score/hora: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+  validos/ejecucion: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  validos/ejecucion: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+  validos/hora: 20261108T191228Z-s1-replay-interrupcion: sin registro primario en datos/runs/20261108T191228Z-s1-replay-interrupcion
+  validos/hora: 20261109T010308Z-f4-demo-fallo: sin registro primario en datos/runs/20261109T010308Z-f4-demo-fallo
+exit 1

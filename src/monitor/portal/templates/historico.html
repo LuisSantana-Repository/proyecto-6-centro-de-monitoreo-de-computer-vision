@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Histórico{% endblock %}
+{% block content %}
+{% set why = {'incompleta': 'ventana incompleta (final de la ejecución)', 'insuficiente': 'insuficiente (pocas muestras válidas)',
+              'otra_version': 'otra versión del modelo (S2)', 'sin_inferencias': 'sin inferencias válidas',
+              'sin_hora_de_escena': 'replay sin hora de escena (la grabación no tiene hora en el nombre)'} %}
+<h1>Gráficas históricas</h1>
+<p class="muted">Una señal por ventana a través de todas las ejecuciones. Para las ventanas de una sola ejecución,
+  ver <a href="/graficas">Gráficas</a>.</p>
+<div class="card">
+<form class="filters" method="get" action="/historico">
+  <label>Señal
+    <select name="senal">{% for k, s in signals.items() %}<option value="{{ k }}" {{ 'selected' if f.senal == k }}>{{ s.titulo }}</option>{% endfor %}</select></label>
+  <label>Eje
+    <select name="eje">
+      <option value="ejecucion" {{ 'selected' if f.eje == 'ejecucion' }}>por ejecución</option>
+      <option value="hora" {{ 'selected' if f.eje == 'hora' }}>hora de la escena (JST)</option>
+    </select></label>
+  <label>Modo
+    <select name="modo"><option value="">Todos</option>
+      {% for m in modes %}<option value="{{ m }}" {{ 'selected' if f.modo == m }}>{{ 'en vivo' if m == 'live' else 'replay' }}</option>{% endfor %}
+    </select></label>
+  <label>Inicio desde (UTC)<input name="desde" value="{{ f.desde or '' }}" placeholder="aaaa-mm-dd"></label>
+  <label>Inicio hasta (UTC)<input name="hasta" value="{{ f.hasta or '' }}" placeholder="aaaa-mm-dd"></label>
+  <label>Etiqueta contiene<input name="etiqueta" value="{{ f.etiqueta or '' }}" placeholder="c1, s1, referencia…"></label>
+  <button>Aplicar</button> <a href="/historico">Limpiar</a>
+  {% if d %}<span class="muted small" style="margin-left:auto"><a href="/api/historico{{ '?' + qs if qs }}">JSON</a></span>{% endif %}
+</form>
+</div>
+
+{% if error %}
+<div class="flash err" role="alert"><b>Filtro no válido.</b> {{ error }}</div>
+{% elif not any_runs %}
+<div class="empty">No hay ejecuciones registradas. Inicia una con <span class="mono">uv run python -m monitor.run</span>
+  o indexa las existentes con <span class="mono">uv run python -m monitor.ingest</span>.</div>
+{% elif not d.ejecuciones %}
+<div class="empty">Ninguna ejecución coincide con estos filtros. <a href="/historico?senal={{ d.senal }}&eje={{ d.eje }}">Ver todas</a>.</div>
+{% else %}
+<p class="muted">{{ d.n_puntos }} ventanas con valor de {{ d.ejecuciones|length }} ejecuciones
+  {%- if d.umbral %} · umbral de la regla <span class="mono">{{ d.umbral.rule_id }}</span>: {{ d.umbral.op }} {{ d.umbral.valor }}
+  {%- elif d.umbrales_distintos %} · las ejecuciones filtradas usan umbrales distintos: no se dibuja ninguno{% endif %}
+  {%- if d.excluidas %} · excluidas (no se grafican como 0):
+    {% for k, n in d.excluidas.items() %}{{ n }} {{ why.get(k, k) }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}.</p>
+{{ chart|safe }}
+{% if d.eje == 'hora' %}<p class="muted small">Hora de la escena: exacta en vivo; en replay se reconstruye desde la hora
+  de inicio de la grabación (en su nombre) más el intervalo de muestreo. Contra las grabaciones locales, el error
+  medido es de 2.3 min como máximo.</p>{% endif %}
+
+<h2>Ejecuciones</h2>
+<div class="tablewrap"><table>
+  <thead><tr><th>#</th><th>Ejecución</th><th>Modo</th><th>Escena (JST)</th><th>Ventanas con valor</th>
+    <th>Mín.</th><th>Media</th><th>Máx.</th>{% if d.umbral %}<th>Alertas de la regla</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for r in d.ejecuciones %}
+  <tr><td>{{ r.n }}</td><td><a class="mono" href="/runs/{{ r.run_id }}">{{ r.run_id }}</a></td>
+    <td>{{ 'en vivo' if r.mode == 'live' else r.mode }}</td>
+    <td>{{ r.escena_jst or '—' }}{% if r.escena_jst and r.hora_tipo == 'aproximada' %} <span class="muted">(aprox.)</span>{% endif %}</td>
+    <td>{{ r.con_valor }} / {{ r.ventanas }}</td>
+    {% for k in ('min', 'media', 'max') %}<td>{{ d.fmt.format(r[k]) if r[k] is not none else '—' }}</td>{% endfor %}
+    {% if d.umbral %}<td>{{ r.alertas_de_la_regla if r.alertas_de_la_regla is not none else '— (sin la regla)' }}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endif %}
+{% endblock %}

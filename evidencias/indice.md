@@ -20,6 +20,7 @@ sección [Extras](#extras) abajo).
 | `1572001` | Extra F5 (panel de operación `/panel`, reglas de atención y `monitor.dashboard --verificar`), con las capturas 35–38 y las verificaciones en `evidencias/panel/`. |
 | `ca41a4e` | Extra S3 (regla `inferencia-fallida-v1`, recarga automática del modelo y `inferencia.jsonl`), con las ejecuciones S3-a y S3-b y las capturas 39–42. |
 | `3f2cbe4` | Extra S4 (regla `telemetria-perdida-v1`, búfer del registro primario, cola del índice y 503 del portal), con las ejecuciones S4-a y S4-b y las capturas 43–46. |
+| `3675d9a` | Extra M4 (`monitor.agreement`: acuerdo con yolo11s sobre los mismos frames, referencia y comparación pareada), con la ejecución `20261109T054751Z-m4-desenfoque` y las capturas 47–49. |
 
 Respecto de `0862536`, `50b3b0a` agrega:
 - la muestra de recursos del proceso por evento (`resources`, para G3);

@@ -87,6 +87,11 @@ def build_reference(runs: list[Path], cfg: dict) -> dict:
     }
 
 
+def ref_path(cfg: dict) -> str:
+    """F7: cada fuente puede declarar su propia referencia de distribución (reference.distribution_file)."""
+    return (cfg.get("reference") or {}).get("distribution_file") or REF_FILE
+
+
 def load_reference(path: str | Path = REF_FILE) -> dict | None:
     p = Path(path)
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None

@@ -49,6 +49,7 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`drift.py`](src/monitor/drift.py) | Métrica adicional M1: W1 de las puntuaciones frente a la referencia |
 | [`agreement.py`](src/monitor/agreement.py) | Métrica adicional M4: acuerdo con un modelo de referencia sobre los mismos frames (medir, referencia, comparar, degradar) |
 | [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana, revisión humana |
+| [`sources.py`](src/monitor/sources.py) | Extra F7: resumen por fuente, protección contra la referencia de otra fuente, verificación y contrafactual de umbrales |
 | [`history.py`](src/monitor/history.py) | Extra F6: series históricas por ventana (por ejecución o por hora de la escena) y su verificación contra los registros primarios |
 | [`dashboard.py`](src/monitor/dashboard.py) | Extra F5: panel de operación (indicadores, reglas de atención, estado por ejecución) y su verificación contra los registros primarios |
 | [`traffic.py`](src/monitor/traffic.py) | Extra S5: regla `trafico-bajo-v1`, ventana extendida e inyección de poco tráfico (escena vacía) |
@@ -90,6 +91,7 @@ configuración, `cfg-0b5e664b118c` en las evidencias) y `model_ref` (`yolo11n@sh
 | Desplazamiento de la distribución (M1) | `uv run python -m monitor.drift datos/runs/<run_id>` (referencia: `--build <ref1> <ref2>`) |
 | Escenario S1: corte de la fuente | `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --inject-outage 180:90 ...` |
 | Métrica M4: acuerdo entre modelos | `uv run python -m monitor.agreement medir datos/runs/<run_id>` y después `monitor.metrics` (o `monitor.agreement reporte`, sin modelo) |
+| Segunda cámara (F7) | `uv run python -m monitor.run --config config/fuente-02.yaml` (a la vez que la primera); `uv run python -m monitor.sources --verificar` |
 | Escenario S5: poco tráfico | `uv run python -m monitor.run --config config/escenario-trafico.yaml --inject-low-traffic zona:120:480 ...` (o `vacia:120:360`) |
 | Escenario S4: pérdida de telemetría | `uv run python -m monitor.run --config config/escenario-telemetria.yaml --inject-telemetry-loss indice:150:60 ...` (o `registro:330:40`) |
 | Escenario S3: error de inferencia | `uv run python -m monitor.run --config config/escenario-inferencia.yaml --inject-inference-error corrupcion:150 ...` (o `persistente:300:60`) |
@@ -212,6 +214,7 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | F4 | Funcionalidad: vista en vivo del stream con resultados y estado de la ejecución (`/vivo`) | 15 |
 | F5 | Funcionalidad: panel de operación de todas las ejecuciones, con puntos de atención y verificación (`/panel`) | 10 |
 | F6 | Funcionalidad: gráficas históricas de todas las ejecuciones, por ejecución o por hora de la escena, con verificación (`/historico`) | 10 |
+| F7 | Funcionalidad: varias fuentes, con dos cámaras en vivo a la vez y referencia, umbrales y muestreo por fuente, verificado (`/fuentes`, [`docs/fuentes.md`](docs/fuentes.md)) | 15 |
 
 **S1 en resumen.** Tres variantes con la misma regla `fuente-interrumpida-v1`. En las tres se abre
 una alerta crítica, que se resuelve sola, la ventana del corte queda `insuficiente` y

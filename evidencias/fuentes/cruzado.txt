@@ -1,0 +1,12 @@
+20261110T071439Z-f7-vivo-fuente02 (shibuya-scramble-02) con los umbrales de config/monitor.yaml {'low_ratio': 0.724, 'mean_score': 0.445}:
+  fuera de rango 0/4 ventanas evaluadas · alertas []
+  con sus propios umbrales {'low_ratio': 0.615, 'mean_score': 0.472}: fuera de rango 0 · alertas 0
+20261110T073617Z-f7-anochecer-fuente02 (shibuya-scramble-02) con los umbrales de config/monitor.yaml {'low_ratio': 0.724, 'mean_score': 0.445}:
+  fuera de rango 0/4 ventanas evaluadas · alertas []
+  con sus propios umbrales {'low_ratio': 0.615, 'mean_score': 0.472}: fuera de rango 2 · alertas 1
+20261110T071439Z-f7-vivo-fuente01 (shibuya-scramble-01) con los umbrales de config/fuente-02.yaml {'low_ratio': 0.615, 'mean_score': 0.472}:
+  fuera de rango 6/10 ventanas evaluadas · alertas ['baja-confianza-v1', 'cambio-sostenido-v1']
+  con sus propios umbrales {'low_ratio': 0.724, 'mean_score': 0.445}: fuera de rango 1 · alertas 0
+20261110T073617Z-f7-anochecer-fuente01 (shibuya-scramble-01) con los umbrales de config/fuente-02.yaml {'low_ratio': 0.615, 'mean_score': 0.472}:
+  fuera de rango 9/10 ventanas evaluadas · alertas ['baja-confianza-v1', 'cambio-sostenido-v1', 'baja-confianza-v1', 'cambio-sostenido-v1']
+  con sus propios umbrales {'low_ratio': 0.724, 'mean_score': 0.445}: fuera de rango 9 · alertas 3

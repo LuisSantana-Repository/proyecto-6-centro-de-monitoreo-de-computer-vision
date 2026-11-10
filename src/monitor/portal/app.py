@@ -26,6 +26,7 @@ from monitor import dashboard as panelmod
 from monitor import agreement, drift
 from monitor import export as exporter
 from monitor import history as histmod
+from monitor import sources as srcmod
 from monitor import live as livemod
 from monitor.config import load_config
 from monitor.draw import draw_detections
@@ -81,8 +82,16 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         return r[0] if r else None
 
     # -- consultas --------------------------------------------------------------
-    def query_events(run_id, status, reason, with_image, since, until, page):
+    RUN_SOURCE = "json_extract(manifest_json, '$.config.source.id')"
+
+    def source_options() -> list[str]:
+        """F7: fuentes con ejecuciones registradas (source.id de la configuración de cada ejecución)."""
+        return [r["s"] for r in rows(f"SELECT DISTINCT {RUN_SOURCE} AS s FROM runs WHERE {RUN_SOURCE} IS NOT NULL ORDER BY 1")]
+
+    def query_events(run_id, status, reason, with_image, since, until, page, fuente=""):
         where, params = [], []
+        if fuente:                                   # F7: en replay el source_id lleva el sufijo -replay
+            where.append("source_id IN (?, ?)"); params += [fuente, f"{fuente}-replay"]
         if run_id:
             where.append("run_id = ?"); params.append(run_id)
         if status:
@@ -105,8 +114,10 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         )
         return total, items
 
-    def query_alerts(run_id, severity, rule_id, status):
+    def query_alerts(run_id, severity, rule_id, status, fuente=""):
         where, params = [], []
+        if fuente:
+            where.append(f"run_id IN (SELECT run_id FROM runs WHERE {RUN_SOURCE} = ?)"); params.append(fuente)
         for col, val in (("run_id", run_id), ("severity", severity), ("rule_id", rule_id), ("status", status)):
             if val:
                 where.append(f"{col} = ?"); params.append(val)
@@ -232,6 +243,22 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         except panelmod.PanelError as e:
             raise HTTPException(e.status, e.message)
 
+    # -- varias fuentes (F7) -------------------------------------------------------
+    def sources_data() -> list[dict]:
+        con = panelmod.connect(db_path)
+        try:
+            return srcmod.summary(con, panelmod.live_states(live_dir), root)
+        finally:
+            con.close()
+
+    @app.get("/fuentes", response_class=HTMLResponse)
+    def sources_page(request: Request):
+        return templates.TemplateResponse(request, "fuentes.html", {"sources": sources_data()})
+
+    @app.get("/api/fuentes")
+    def api_sources():
+        return {"fuentes": sources_data()}
+
     # -- gráficas históricas (F6) ------------------------------------------------
     def history_series(params: dict) -> dict:
         f = histmod.HistoryFilter.from_params(params)          # PanelError (422) si un filtro no es válido
@@ -245,6 +272,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
     def history_page(request: Request):
         params = dict(request.query_params)
         ctx = {"f": {"senal": "low_ratio", "eje": "ejecucion", **params}, "signals": histmod.SIGNALS,
+               "sources": source_options(),
                "axes": histmod.AXES, "modes": panelmod.MODES,
                "any_runs": bool(one("SELECT 1 AS x FROM runs LIMIT 1"))}
         try:
@@ -267,17 +295,17 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
     def events_page(
         request: Request,
         run_id: str = "", status: str = "", reason: str = "", with_image: bool = False,
-        since: str = "", until: str = "", page: int = Query(1, ge=1),
+        since: str = "", until: str = "", page: int = Query(1, ge=1), fuente: str = "",
     ):
-        total, items = query_events(run_id, status, reason, with_image, since, until, page)
+        total, items = query_events(run_id, status, reason, with_image, since, until, page, fuente)
         reasons = [r["capture_reason"] for r in rows(
             "SELECT DISTINCT capture_reason FROM events WHERE capture_reason IS NOT NULL ORDER BY 1")]
         qs = urlencode([(k, v) for k, v in request.query_params.multi_items() if k != "page"])
         return templates.TemplateResponse(request, "events.html", {
             "items": items, "total": total, "page": page, "pages": max(1, math.ceil(total / PAGE_SIZE)), "qs": qs,
             "f": {"run_id": run_id, "status": status, "reason": reason, "with_image": with_image,
-                  "since": since, "until": until},
-            "runs": run_options(), "statuses": STATUSES, "reasons": reasons,
+                  "since": since, "until": until, "fuente": fuente},
+            "runs": run_options(), "statuses": STATUSES, "reasons": reasons, "sources": source_options(),
         })
 
     def render_event(request: Request, event_id: str, low: bool = False, status_code: int = 200,
@@ -307,8 +335,8 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
 
     @app.get("/alertas", response_class=HTMLResponse)
     def alerts_page(request: Request, run_id: str = "", severity: str = "", rule_id: str = "", status: str = "",
-                    revision: str = ""):
-        items = query_alerts(run_id, severity, rule_id, status)
+                    revision: str = "", fuente: str = ""):
+        items = query_alerts(run_id, severity, rule_id, status, fuente)
         hs = histories("alert")
         for a in items:
             a["n_events"] = len(json.loads(a["event_ids_json"]))
@@ -318,7 +346,8 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         return templates.TemplateResponse(request, "alerts.html", {
             "items": items, "runs": run_options(),
             "rules": [r["rule_id"] for r in rows("SELECT DISTINCT rule_id FROM alerts ORDER BY 1")],
-            "f": {"run_id": run_id, "severity": severity, "rule_id": rule_id, "status": status, "revision": revision},
+            "f": {"run_id": run_id, "severity": severity, "rule_id": rule_id, "status": status, "revision": revision,
+                  "fuente": fuente}, "sources": source_options(),
         })
 
     def reaction(al: dict) -> list[dict]:
@@ -555,7 +584,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
                 idx = int(m.group(1)) if "-w" in m.group(0) else (int(m.group(1)) - 1) // size + 1
                 marks.setdefault(idx, []).append(a["rule_id"])
         rules = {x["signal"]: x for x in cfg.get("alerts", [])}
-        ref = drift.load_reference(root / drift.REF_FILE)
+        ref = drift.load_reference(root / drift.ref_path(cfg))     # F7: la de la fuente de la ejecución
         evs = rows("SELECT seq, status, detections_json FROM events WHERE run_id = ? ORDER BY seq", (run_id,))
         w1 = {}
         for i in range(0, len(evs), size):
@@ -672,8 +701,8 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
     # -- API JSON ---------------------------------------------------------------
     @app.get("/api/eventos")
     def api_events(run_id: str = "", status: str = "", reason: str = "", with_image: bool = False,
-                   since: str = "", until: str = "", page: int = Query(1, ge=1)):
-        total, items = query_events(run_id, status, reason, with_image, since, until, page)
+                   since: str = "", until: str = "", page: int = Query(1, ge=1), fuente: str = ""):
+        total, items = query_events(run_id, status, reason, with_image, since, until, page, fuente)
         return {"total": total, "page": page, "page_size": PAGE_SIZE, "items": items}
 
     @app.get("/api/eventos/{event_id}")
@@ -681,8 +710,8 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         return event_or_404(event_id)
 
     @app.get("/api/alertas")
-    def api_alerts(run_id: str = "", severity: str = "", rule_id: str = "", status: str = ""):
-        items = query_alerts(run_id, severity, rule_id, status)
+    def api_alerts(run_id: str = "", severity: str = "", rule_id: str = "", status: str = "", fuente: str = ""):
+        items = query_alerts(run_id, severity, rule_id, status, fuente)
         for a in items:
             a["event_ids"] = json.loads(a.pop("event_ids_json"))
             a["metric"] = json.loads(a.pop("metric_json") or "{}")

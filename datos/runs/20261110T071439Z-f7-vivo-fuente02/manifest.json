@@ -1,0 +1,168 @@
+{
+  "run_id": "20261110T071439Z-f7-vivo-fuente02",
+  "label": "f7-vivo-fuente02",
+  "started_at": "2026-11-10T07:14:45.326Z",
+  "config_path": "config/fuente-02.yaml",
+  "config_ref": "cfg-d1ae5ba10d53",
+  "config": {
+    "source": {
+      "id": "shibuya-scramble-02",
+      "url": "https://www.youtube.com/watch?v=5B4LmH4JbnY",
+      "format": "bv[height<=720]/bv",
+      "sample_interval_s": 5.0,
+      "reconnect_after_failures": 30,
+      "reconnect_backoff_s": 5.0
+    },
+    "model": {
+      "name": "yolo11n",
+      "weights": "modelo/yolo11n.pt",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt",
+      "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+      "device": "cpu",
+      "imgsz": 1280,
+      "conf_floor": 0.05,
+      "nms_iou": 0.7,
+      "max_det": 300,
+      "classes": [
+        0,
+        1,
+        2,
+        3,
+        5,
+        7
+      ]
+    },
+    "policy": {
+      "lower": 0.5,
+      "upper": 0.65,
+      "analysis_floor": 0.25
+    },
+    "windows": {
+      "size_frames": 60,
+      "min_valid_frames": 45,
+      "min_eligible": 300
+    },
+    "reference": {
+      "stats_file": "config/referencia-fuente-02.json",
+      "recordings": [
+        "datos/grabaciones/20261110T063255Z-referencia-fuente02"
+      ],
+      "distribution_file": "config/referencia-distribucion-fuente-02.json"
+    },
+    "alerts": [
+      {
+        "rule_id": "baja-confianza-v1",
+        "signal": "low_ratio",
+        "op": ">",
+        "threshold": 0.615,
+        "consecutive": 1,
+        "severity": "warning",
+        "suggested_action": "Revisar las capturas de la ventana: iluminación, clima, oclusión o encuadre de la cámara. Una confianza baja no implica que las detecciones sean incorrectas."
+      },
+      {
+        "rule_id": "cambio-sostenido-v1",
+        "signal": "mean_score",
+        "op": "<",
+        "threshold": 0.472,
+        "consecutive": 3,
+        "severity": "critical",
+        "suggested_action": "Posible cambio sostenido respecto de la referencia de esta cámara (p. ej. noche, lluvia, cámara movida). Comparar con capturas de referencia; no confirma drift ni exige reentrenar."
+      }
+    ],
+    "capture": {
+      "normal_every_n_frames": 15,
+      "frame_mean_below": 0.43,
+      "frame_min_eligible": 5,
+      "on_no_detections": true,
+      "on_error": true
+    },
+    "output": {
+      "runs_dir": "datos/runs",
+      "db": "datos/monitor.db"
+    }
+  },
+  "model_ref": "yolo11n@sha256:0ebbc80d4a76",
+  "model_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+  "class_names": {
+    "0": "person",
+    "1": "bicycle",
+    "2": "car",
+    "3": "motorcycle",
+    "5": "bus",
+    "7": "truck"
+  },
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel",
+    "torch": "2.15.0+cpu",
+    "ultralytics": "8.4.207",
+    "opencv": "4.14.0",
+    "cuda_available": false,
+    "cpu_count_logical": 12,
+    "ram_total_gb": 15.7
+  },
+  "mode": "live",
+  "replay_of": null,
+  "paced": true,
+  "recording_dir": null,
+  "fault_injection": null,
+  "model_swap": null,
+  "inference_fault": null,
+  "telemetry_fault": null,
+  "low_traffic_fault": null,
+  "live_view": {
+    "dir": "datos\\vivo\\20261110T071439Z-f7-vivo-fuente02",
+    "write_errors": 0
+  },
+  "source_meta": {
+    "title": "【ライブ】渋谷スクランブル交差点 / Shibuya Scramble Crossing Live Camera【LIVE】ANN/テレ朝 2026-11-10 01:14",
+    "channel": "ANNnewsCH",
+    "live_status": "is_live",
+    "format_id": "232",
+    "width": 1280,
+    "height": 720,
+    "fps": 30.0,
+    "resolved_at": "2026-11-10T07:14:47.870Z"
+  },
+  "telemetry": {
+    "registro_lineas_escritas": 245,
+    "registro_perdidas": 0,
+    "registro_pendientes_al_cerrar": 0,
+    "indice_operaciones": 245,
+    "indice_pendientes_al_cerrar": 0
+  },
+  "finished_at": "2026-11-10T07:34:45.979Z",
+  "counts": {
+    "ok": 240,
+    "no_detections": 0,
+    "inference_error": 0,
+    "invalid_input": 0,
+    "images": 31,
+    "windows": 4,
+    "alerts": 0,
+    "reloads": 0
+  },
+  "source_stats": {
+    "frames_received": 36361,
+    "frames_sampled": 240,
+    "dropped_sampling": 36121,
+    "dropped_saturation": 0,
+    "dropped_source_wait": 0,
+    "read_failures": 0,
+    "decode_failures": 0,
+    "reconnect_attempts": 0,
+    "reconnections": 0,
+    "last_frame_at": "2026-11-10T07:34:45.763Z",
+    "stream_meta": {
+      "title": "【ライブ】渋谷スクランブル交差点 / Shibuya Scramble Crossing Live Camera【LIVE】ANN/テレ朝 2026-11-10 01:14",
+      "channel": "ANNnewsCH",
+      "live_status": "is_live",
+      "format_id": "232",
+      "width": 1280,
+      "height": 720,
+      "fps": 30.0,
+      "resolved_at": "2026-11-10T07:14:47.870Z"
+    }
+  }
+}

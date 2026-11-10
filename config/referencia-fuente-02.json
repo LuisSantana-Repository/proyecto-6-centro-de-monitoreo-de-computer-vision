@@ -1,0 +1,97 @@
+{
+  "generated_at": "2026-11-10T14:13:43.171Z",
+  "config_ref_at_generation": "cfg-d1ae5ba10d53",
+  "source_id": "shibuya-scramble-02",
+  "analysis_floor": 0.25,
+  "lower": 0.5,
+  "window_size_frames": 60,
+  "runs": [
+    {
+      "run_id": "20261110T140928Z-referencia-fuente02",
+      "config_ref": "cfg-d1ae5ba10d53",
+      "replay_of": "20261110T063255Z-referencia-fuente02",
+      "n_events": 456,
+      "n_windows": 7,
+      "first_captured_at": "2026-11-10T14:09:38.532Z",
+      "det_per_frame": 96.37,
+      "low_ratio": {
+        "n": 7,
+        "mean": 0.582,
+        "sd": 0.0167,
+        "min": 0.5584,
+        "p2_5": 0.5599,
+        "p5": 0.5614,
+        "p50": 0.5818,
+        "p95": 0.6043,
+        "p97_5": 0.6079,
+        "max": 0.6115
+      },
+      "mean_score": {
+        "n": 7,
+        "mean": 0.487,
+        "sd": 0.0074,
+        "min": 0.4747,
+        "p2_5": 0.4759,
+        "p5": 0.4771,
+        "p50": 0.4878,
+        "p95": 0.4961,
+        "p97_5": 0.4965,
+        "max": 0.4968
+      }
+    }
+  ],
+  "candidates_total": 43945,
+  "eligible_total": 11114,
+  "eligible_fraction": 0.2529,
+  "eligible_score_quantiles": {
+    "p25": 0.3252,
+    "p50": 0.4451,
+    "p60": 0.5122,
+    "p75": 0.636,
+    "p80": 0.6774,
+    "p90": 0.7621
+  },
+  "windows": {
+    "low_ratio": {
+      "n": 7,
+      "mean": 0.582,
+      "sd": 0.0167,
+      "min": 0.5584,
+      "p2_5": 0.5599,
+      "p5": 0.5614,
+      "p50": 0.5818,
+      "p95": 0.6043,
+      "p97_5": 0.6079,
+      "max": 0.6115
+    },
+    "mean_score": {
+      "n": 7,
+      "mean": 0.487,
+      "sd": 0.0074,
+      "min": 0.4747,
+      "p2_5": 0.4759,
+      "p5": 0.4771,
+      "p50": 0.4878,
+      "p95": 0.4961,
+      "p97_5": 0.4965,
+      "max": 0.4968
+    }
+  },
+  "frame_mean_eligible": {
+    "n": 456,
+    "mean": 0.4906,
+    "sd": 0.0428,
+    "min": 0.4041,
+    "p2_5": 0.4222,
+    "p5": 0.4293,
+    "p50": 0.4878,
+    "p95": 0.5639,
+    "p97_5": 0.5931,
+    "max": 0.6404
+  },
+  "derived_thresholds": {
+    "low_ratio_gt (mean + 2 sd)": 0.615,
+    "mean_score_lt (mean - 2 sd)": 0.472,
+    "capture_frame_mean_below (p5 frame)": 0.43
+  }
+}

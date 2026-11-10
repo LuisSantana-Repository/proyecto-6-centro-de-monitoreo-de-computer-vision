@@ -1,0 +1,4 @@
+21 ejecuciones versionadas
+  shibuya-scramble-01: 18 ejecuciones
+  shibuya-scramble-02: 3 ejecuciones
+Cada ejecución usa la referencia de su fuente y los umbrales derivados de ella; sus eventos son de esa fuente.

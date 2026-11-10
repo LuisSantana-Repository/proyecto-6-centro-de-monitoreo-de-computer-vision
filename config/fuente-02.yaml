@@ -1,0 +1,42 @@
+# Extra F7 · Segunda fuente: el mismo cruce de Shibuya visto desde la calle (cámara de ANN/TV Asahi), en lugar
+# de desde arriba (fuente 01, monitor.yaml). Hereda modelo, política de zonas, ventanas y la forma de las reglas
+# de monitor.yaml; cambia la fuente, su referencia y los umbrales derivados de ella. Con los de la fuente 01, la
+# cámara 02 quedaría casi siempre en "baja confianza": ve multitudes más lejanas y pequeñas.
+base: monitor.yaml
+
+source:
+  id: shibuya-scramble-02
+  url: https://www.youtube.com/watch?v=5B4LmH4JbnY
+  sample_interval_s: 5.0       # el stream entrega segmentos HLS de 5 s (la fuente 01, de 2 s): pedir un frame cada
+                                # 2 s solo espera al siguiente segmento. Ventana de 60 muestras = 5 min.
+
+reference:
+  stats_file: config/referencia-fuente-02.json                       # generada con monitor.reference (source_id 02)
+  distribution_file: config/referencia-distribucion-fuente-02.json   # M1 (W1) frente a la escena de esta cámara
+  recordings:
+    - datos/grabaciones/20261110T063255Z-referencia-fuente02         # 15:34 JST, martes, tarde
+
+# Umbrales derivados de config/referencia-fuente-02.json con la misma regla que la fuente 01 (media ± 2 sd por
+# ventana; captura = p5 de la media por frame). La lista de reglas se repite completa porque una lista no se mezcla.
+alerts:
+  - rule_id: baja-confianza-v1
+    signal: low_ratio
+    op: ">"
+    threshold: 0.615          # media + 2 sd de la referencia de esta fuente (fuente 01: 0.724)
+    consecutive: 1
+    severity: warning
+    suggested_action: >-
+      Revisar las capturas de la ventana: iluminación, clima, oclusión o encuadre de la cámara.
+      Una confianza baja no implica que las detecciones sean incorrectas.
+  - rule_id: cambio-sostenido-v1
+    signal: mean_score
+    op: "<"
+    threshold: 0.472          # media - 2 sd de la referencia de esta fuente (fuente 01: 0.445)
+    consecutive: 3            # 3 ventanas suficientes seguidas = 15 min a 1 muestra / 5 s
+    severity: critical
+    suggested_action: >-
+      Posible cambio sostenido respecto de la referencia de esta cámara (p. ej. noche, lluvia, cámara movida).
+      Comparar con capturas de referencia; no confirma drift ni exige reentrenar.
+
+capture:
+  frame_mean_below: 0.43      # p5 de la media por frame en la referencia de esta fuente (fuente 01: 0.38)

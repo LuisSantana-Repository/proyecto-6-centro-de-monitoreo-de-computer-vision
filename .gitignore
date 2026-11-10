@@ -26,6 +26,11 @@ datos/runs/*
 !datos/runs/20261109T054751Z-m4-desenfoque/
 !datos/runs/20261110T053920Z-s5a-poco-trafico/
 !datos/runs/20261110T053925Z-s5b-escena-vacia/
+!datos/runs/20261110T140928Z-referencia-fuente02/
+!datos/runs/20261110T071439Z-f7-vivo-fuente01/
+!datos/runs/20261110T071439Z-f7-vivo-fuente02/
+!datos/runs/20261110T073617Z-f7-anochecer-fuente01/
+!datos/runs/20261110T073617Z-f7-anochecer-fuente02/
 datos/grabaciones/
 datos/logs/
 datos/exportaciones.jsonl

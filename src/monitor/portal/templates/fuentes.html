@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Fuentes{% endblock %}
+{% block content %}
+<h1>Fuentes</h1>
+<p class="muted">Cada cámara se monitorea con su propia configuración, su referencia y los umbrales derivados de ella:
+  con los umbrales de otra fuente, sus ventanas se evaluarían contra una escena distinta.
+  <a class="mono" href="/api/fuentes">/api/fuentes</a></p>
+{% if not sources %}
+<div class="empty">No hay ejecuciones registradas. Inicia una con <span class="mono">uv run python -m monitor.run</span>
+  (o <span class="mono">--config config/fuente-02.yaml</span> para la segunda cámara).</div>
+{% else %}
+{% for s in sources %}
+<div class="card">
+  <h2 style="margin-top:0"><span class="mono">{{ s.source_id }}</span>
+    {% if s.en_curso %}<span class="badge s-ok">en curso ({{ s.en_curso|length }})</span>{% endif %}</h2>
+  <dl class="tight">
+    <dt>Stream</dt><dd>{% if s.url %}<a href="{{ s.url }}" rel="noopener">{{ s.url }}</a>{% else %}—{% endif %}</dd>
+    <dt>Ejecuciones</dt><dd>{{ s.n_runs }} ({{ s.live }} en vivo, {{ s.replay }} replay)
+      {% for r in s.en_curso %} · <a href="/vivo?run_id={{ r }}">ver en vivo {{ r }}</a>{% endfor %}</dd>
+    <dt>Eventos</dt><dd>{{ s.events }} ({{ s.valid }} con inferencia válida) · {{ s.det_per_frame if s.det_per_frame is not none else '—' }}
+      detecciones por frame · último {{ s.last_event or '—' }}</dd>
+    <dt>Ventanas</dt><dd>{% for k, n in s.windows.items() %}{{ n }} {{ k|replace('_', ' ') }}{{ ', ' if not loop.last }}{% else %}—{% endfor %}
+      {% if s.pct_out_of_range is not none %} · {{ '%.0f'|format(100 * s.pct_out_of_range) }} % fuera de rango de las evaluadas{% endif %}</dd>
+    <dt>Alertas</dt><dd>{{ s.alerts }} ({{ s.alerts_open }} abiertas)</dd>
+    <dt>Ver</dt><dd><a href="/eventos?fuente={{ s.source_id }}">eventos</a> · <a href="/alertas?fuente={{ s.source_id }}">alertas</a> ·
+      <a href="/historico?fuente={{ s.source_id }}">histórico</a></dd>
+  </dl>
+  <h3>Configuración, referencia y umbrales</h3>
+  <table class="hist"><thead><tr><th>Configuración</th><th>Referencia</th><th>De la fuente</th><th>Baja confianza &gt;</th><th>Media &lt;</th></tr></thead>
+  <tbody>{% for c in s.configs %}<tr><td><a class="mono" href="/config/{{ c.config_ref }}">{{ c.config_ref }}</a></td>
+    <td class="mono">{{ c.reference or '—' }}</td>
+    <td>{% if c.reference_source is none %}<span class="muted">sin registrar</span>{% elif c.reference_source == s.source_id %}esta{% else %}<b>otra: {{ c.reference_source }}</b>{% endif %}</td>
+    <td>{{ c.thresholds.low_ratio if c.thresholds.low_ratio is defined else '—' }}</td>
+    <td>{{ c.thresholds.mean_score if c.thresholds.mean_score is defined else '—' }}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

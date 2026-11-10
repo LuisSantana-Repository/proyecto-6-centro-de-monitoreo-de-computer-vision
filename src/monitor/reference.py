@@ -43,6 +43,12 @@ def main() -> None:
     floor, lower = cfg["policy"]["analysis_floor"], cfg["policy"]["lower"]
     size = cfg["windows"]["size_frames"]
 
+    # F7: una referencia vale para una sola fuente; se comprueba antes de calcular nada
+    from monitor.sources import base_source
+    sources = {base_source(json.loads(l)["source_id"]) for r in args.runs
+               for l in open(Path(r) / "events.jsonl", encoding="utf-8")}
+    if len(sources) != 1:
+        raise SystemExit(f"Las ejecuciones de referencia mezclan fuentes: {sorted(sources)}")
     all_scores, eligible, frame_means = [], [], []
     win_low, win_mean, per_run = [], [], []
     for r in args.runs:
@@ -73,6 +79,7 @@ def main() -> None:
     out = {
         "generated_at": utc_now_iso(),
         "config_ref_at_generation": config_ref(cfg),
+        "source_id": next(iter(sources)),   # F7: la referencia solo vale para esta fuente
         "analysis_floor": floor, "lower": lower, "window_size_frames": size,
         "runs": per_run,
         "candidates_total": len(all_scores),

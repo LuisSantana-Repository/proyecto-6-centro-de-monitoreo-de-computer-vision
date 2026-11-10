@@ -16,6 +16,10 @@
       <option value="ejecucion" {{ 'selected' if f.eje == 'ejecucion' }}>por ejecución</option>
       <option value="hora" {{ 'selected' if f.eje == 'hora' }}>hora de la escena (JST)</option>
     </select></label>
+  <label>Fuente
+    <select name="fuente"><option value="">Todas</option>
+    {% for s in sources %}<option value="{{ s }}" {{ 'selected' if f.fuente == s }}>{{ s }}</option>{% endfor %}
+    </select></label>
   <label>Modo
     <select name="modo"><option value="">Todos</option>
       {% for m in modes %}<option value="{{ m }}" {{ 'selected' if f.modo == m }}>{{ 'en vivo' if m == 'live' else 'replay' }}</option>{% endfor %}

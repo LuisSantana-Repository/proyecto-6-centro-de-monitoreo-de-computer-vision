@@ -21,6 +21,7 @@ forma de verificarlo.
 | **F4** | Funcionalidad | Vista en vivo del stream con resultados, estado de la ejecución y de la fuente | 15 | completo |
 | **F5** | Funcionalidad | Panel de operación (dashboard): indicadores, puntos de atención, estado por ejecución y por regla, verificado contra los JSONL | 10 | completo |
 | **F6** | Funcionalidad | Gráficas históricas: una señal por ventana a través de todas las ejecuciones, por ejecución o por hora de la escena, verificadas contra los JSONL | 10 | completo |
+| **F7** | Funcionalidad | Varias fuentes: dos cámaras en vivo a la vez, cada una con su referencia, umbrales y muestreo, verificado y con contrafactual | 15 | completo |
 
 ---
 
@@ -308,6 +309,22 @@ estados vacíos o erróneos. Código: [`src/monitor/history.py`](../src/monitor/
 | **Pruebas** | [`tests/test_history.py`](../tests/test_history.py), 6 pruebas sobre tres ejecuciones escritas como JSONL e indexadas (en vivo, replay con hora en la grabación y replay sin hora). Cubren los seis errores de filtro; valores, exclusiones por motivo, cruce del umbral, hora de la escena exacta y aproximada y la exclusión del eje `hora`; las otras señales (p95 por rango más cercano, válidos) y los filtros; la verificación (coincide en las 8 combinaciones, detecta un JSONL distinto del índice y una carpeta sin registros); la página, la API, el 422 y los estados vacíos; y la CLI `--verificar` con salida 0 y 1. |
 | **Por qué nivel 10** | Consulta parametrizada sobre lo persistido, resultados verificados contra los registros primarios y estados vacíos y erróneos probados. No coordina estados ni integra otra fuente, así que no se pide 15. |
 
+## F7 · Varias fuentes (funcionalidad, nivel 15)
+
+Flujo compuesto con integración adicional (una segunda cámara en vivo), coordinación de estados (cada
+ejecución con la referencia y los umbrales de su fuente, comprobado al arrancar y después), persistencia y
+trazabilidad, con caso normal y casos de fallo reproducibles. Detalle: [`docs/fuentes.md`](fuentes.md).
+
+| | |
+|---|---|
+| **Qué hace** | Monitorea a la vez dos cámaras del mismo cruce: `shibuya-scramble-01` (desde arriba) y `shibuya-scramble-02` (desde la calle). Cada una tiene su configuración ([`config/fuente-02.yaml`](../config/fuente-02.yaml) hereda de `monitor.yaml`), su referencia con `source_id`, sus umbrales derivados con la misma regla (prop. baja > 0.724 frente a **0.615**; media < 0.445 frente a **0.472**), su referencia de W1 y su intervalo de muestreo (2 s frente a **5 s**: la fuente 02 entrega segmentos HLS de 5 s). Portal: `/fuentes` con una tarjeta por fuente (ejecuciones, estado en curso, ventanas, alertas y la tabla de configuraciones con **de qué fuente es** su referencia), y filtro **Fuente** en eventos, alertas e histórico (F6) y sus APIs. |
+| **Integración y coordinación** | `monitor.reference` registra la fuente de la referencia y no mezcla fuentes. `monitor.run` no arranca con la referencia de otra fuente. `monitor.metrics` y `/graficas` usan la referencia de W1 de la fuente de cada ejecución. `/historico` no dibuja un umbral común cuando las fuentes tienen umbrales distintos. |
+| **Persistencia y trazabilidad** | Cada ejecución guarda su configuración (fuente, referencia y umbrales) en el manifest y en SQLite. `monitor.sources --verificar` comprueba, desde los registros primarios, que su referencia es de su fuente, que sus umbrales son los derivados de ella y que todos sus eventos son de esa fuente: coincide en las 21 ejecuciones versionadas (18 + 3). `monitor.evaluate` coincide en las 5 nuevas. |
+| **Caso normal** | Las dos cámaras en vivo a la vez, de día (`20261110T071439Z-f7-vivo-fuente01` y `-fuente02`): 0 alertas en las dos; la fuente 02 muestrea a 0.1997 FPS de 0.2 (G2). Al anochecer y de noche (`20261110T073617Z-f7-anochecer-…`), cada una alerta según su referencia: la 01 con `cambio-sostenido-v1` y `baja-confianza-v1`; la 02 con `baja-confianza-v1` (0.621 > 0.615), aunque se degrada menos. |
+| **Casos de fallo** | (1) **Contrafactual con los umbrales de la otra fuente** (`--cruzado`): de noche, la fuente 02 con los de la 01 pierde el cambio (0 alertas frente a 1); de día, la 01 con los de la 02 da 2 falsas alarmas (6/10 ventanas fuera de rango frente a 1/10). (2) **Referencia de otra fuente**: la grabación de referencia de la 02 se lanzó cuando su configuración todavía heredaba la referencia de la 01. `/fuentes` la marca ("otra: shibuya-scramble-01") y hoy ese arranque se rechaza (probado). (3) **Muestreo distinto por fuente**: pedir 1 frame / 2 s a la 02 daba ~5.1 s; se midió y se declaró su intervalo. (4) **Suspensión del equipo** durante la pareja del anochecer: huecos de 85 min y 4.8 h en las dos fuentes a la vez, medidos por G2 (0.025 y 0.010 FPS). |
+| **Evidencia** | 5 ejecuciones nuevas (tabla del índice), [`evidencias/fuentes/`](../evidencias/fuentes/) (verificación y contrafactual), capturas [`58`](../evidencias/portal/58-vivo-dos-fuentes.png)–[`65`](../evidencias/portal/65-graficas-anochecer-fuente01.png), [`portal/api/fuentes.json`](../evidencias/portal/api/fuentes.json), [`tests/test_sources.py`](../tests/test_sources.py) (6 pruebas: protección, verificación de cada inconsistencia, contrafactual, resumen y filtros del portal, referencia con fuente y sin mezclas, y `monitor.run` que rechaza la referencia de otra fuente). |
+| **Por qué nivel 15** | Integra una fuente adicional real en vivo, en paralelo con la primera. Coordina el estado entre configuración, referencia, umbrales y ejecución: lo comprueba al arrancar, lo verifica después desde los registros primarios y lo muestra en el portal. Tiene caso normal y casos de fallo reproducibles (contrafactual en las dos direcciones, referencia de otra fuente rechazada). |
+
 ## Control de doble conteo
 
 - M1 y la regla `cambio-sostenido-v1` (R3.3) usan la misma población, pero M1 compara distribuciones
@@ -339,6 +356,10 @@ estados vacíos o erróneos. Código: [`src/monitor/history.py`](../src/monitor/
 - S5 no repite la ventana `insuficiente` de la base (R3) ni S1: la base solo marca la ventana, y S1 trata la
   falta de frames. S5 distingue la causa (fuente sana, pocos objetos), reacciona evaluando la confianza sobre
   ventanas extendidas y mide el tiempo ciego evitado. S5-a y S5-b se reclaman como un solo extra.
+- F7 no repite F5 ni F6: agrega la fuente como dimensión (configuración, referencia, umbrales, muestreo) con su
+  protección y su verificación. El filtro por fuente que suma a `/historico` (F6) y la referencia de W1 por
+  fuente (M1) son parte de F7, no se cobran como mejoras de F6 ni de M1. Las alertas de la noche son de las
+  reglas base (R3), que no se cobran.
 - F2 no repite F1 ni las vistas base: agrega acciones humanas con estado, persistencia y reglas de
   transición. Las capturas y alertas que revisa son las mismas de C1, C2, S1 y S2, que no se vuelven
   a contar.

@@ -33,6 +33,7 @@ from monitor.live import LiveWriter
 from monitor.policy import LOW, zone, zone_counts
 from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource, utc_now_iso
 from monitor.store import Store
+from monitor.sources import check_reference
 from monitor.traffic import LowTrafficFault, SceneComposer, TrafficMonitor
 from monitor.telemetry import BufferedLog, IndexSink, SinkStatus, TelemetryFault, TelemetryMonitor
 
@@ -110,6 +111,7 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config(args.config)
+    check_reference(cfg)                  # F7: la referencia (y sus umbrales) debe ser de esta misma fuente
     cref = config_ref(cfg)
     lower, upper = cfg["policy"]["lower"], cfg["policy"]["upper"]
 

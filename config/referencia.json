@@ -1,6 +1,7 @@
 {
-  "generated_at": "2026-11-08T16:07:45.665Z",
+  "generated_at": "2026-11-10T06:34:36.779Z",
   "config_ref_at_generation": "cfg-0b5e664b118c",
+  "source_id": "shibuya-scramble-01",
   "analysis_floor": 0.25,
   "lower": 0.5,
   "window_size_frames": 60,

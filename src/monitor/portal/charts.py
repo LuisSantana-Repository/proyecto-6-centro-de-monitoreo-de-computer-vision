@@ -189,6 +189,10 @@ def history_chart(d: dict) -> str:
     key = ("Cada punto es una ventana y enlaza a su ejecución · punto hueco: cruza el umbral de la regla · "
            "la línea une ventanas consecutivas de una misma ejecución y se corta donde hay una ventana excluida."
            if th is not None else
+           "Cada punto es una ventana y enlaza a su ejecución · punto hueco: cruza el umbral de la regla de SU "
+           "ejecución (las ejecuciones filtradas usan umbrales distintos, p. ej. de dos fuentes: no hay una línea común) · "
+           "la línea une ventanas consecutivas de una misma ejecución."
+           if d.get("umbrales_distintos") else
            "Cada punto es una ventana y enlaza a su ejecución · sin regla de alerta para esta señal · "
            "la línea une ventanas consecutivas de una misma ejecución.")
     return head + "".join(out) + f'<p class="muted chart-key">{key}</p></figure>'

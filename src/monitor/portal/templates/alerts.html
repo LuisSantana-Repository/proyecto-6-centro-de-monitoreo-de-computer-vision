@@ -8,6 +8,10 @@
     <select name="run_id"><option value="">Todas</option>
     {% for r in runs %}<option value="{{ r.run_id }}" {{ 'selected' if f.run_id == r.run_id }}>{{ r.run_id }}</option>{% endfor %}
     </select></label>
+  <label>Fuente
+    <select name="fuente"><option value="">Todas</option>
+    {% for s in sources %}<option value="{{ s }}" {{ 'selected' if f.fuente == s }}>{{ s }}</option>{% endfor %}
+    </select></label>
   <label>Regla
     <select name="rule_id"><option value="">Todas</option>
     {% for r in rules %}<option {{ 'selected' if f.rule_id == r }}>{{ r }}</option>{% endfor %}

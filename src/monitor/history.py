@@ -54,7 +54,7 @@ EVALUATED = ("normal", "fuera_de_rango")
 VALID = ("ok", "no_detections")
 JST = timezone(timedelta(hours=9))
 REC_TS = re.compile(r"^(\d{8}T\d{6}Z)")
-PARAMS = ("senal", "eje", "modo", "desde", "hasta", "etiqueta")
+PARAMS = ("senal", "eje", "modo", "desde", "hasta", "etiqueta", "fuente")
 
 
 @dataclass
@@ -65,6 +65,7 @@ class HistoryFilter:
     desde: str = ""
     hasta: str = ""
     etiqueta: str = ""
+    fuente: str = ""                     # F7: source.id de la configuración de la ejecución
 
     @classmethod
     def from_params(cls, params: dict) -> "HistoryFilter":
@@ -102,6 +103,8 @@ class HistoryFilter:
             return False
         if self.etiqueta and self.etiqueta.lower() not in f"{run['run_id']} {run['label'] or ''}".lower():
             return False
+        if self.fuente and run.get("source_id") != self.fuente:
+            return False
         return True
 
     def active(self) -> dict:
@@ -119,7 +122,8 @@ def _run(run_id: str, label, mode, started_at, manifest: dict) -> dict:
              for r in cfg.get("alerts", [])}
     return {"run_id": run_id, "label": label, "mode": mode, "started_at": started_at,
             "replay_of": manifest.get("replay_of"), "interval": cfg.get("source", {}).get("sample_interval_s"),
-            "size": cfg.get("windows", {}).get("size_frames"), "rules": rules}
+            "size": cfg.get("windows", {}).get("size_frames"), "rules": rules,
+            "source_id": (cfg.get("source") or {}).get("id")}
 
 
 def _win(w: dict) -> dict:

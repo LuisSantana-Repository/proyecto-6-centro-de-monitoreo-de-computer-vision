@@ -1,0 +1,4 @@
+{"run_id": "20261110T073617Z-f7-anochecer-fuente01", "at": "2026-11-10T07:36:26.240Z", "type": "conectado", "formato": "232", "resolucion": "1280x720"}
+{"run_id": "20261110T073617Z-f7-anochecer-fuente01", "at": "2026-11-10T13:57:22.237Z", "type": "lectura_fallida", "error": "grab() devolvió False"}
+{"run_id": "20261110T073617Z-f7-anochecer-fuente01", "at": "2026-11-10T13:57:28.864Z", "type": "desconectado", "motivo": "30 lecturas fallidas seguidas, 16.7 s sin frames", "ultimo_error": null}
+{"run_id": "20261110T073617Z-f7-anochecer-fuente01", "at": "2026-11-10T13:57:31.902Z", "type": "reconectado", "intento": 1, "caida_s": 3.0, "formato": "232"}

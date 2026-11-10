@@ -273,7 +273,10 @@ def main() -> None:
     acfg = load_config(args.acuerdo_config) if Path(args.acuerdo_config).exists() else None
     aref = agreement.load_reference(args.acuerdo_ref)
     for r in args.runs:
-        m = compute(Path(r), expected, drift_ref=ref, agree_cfg=acfg, agree_ref=aref)
+        run_cfg = json.loads((Path(r) / "manifest.json").read_text(encoding="utf-8"))["config"]
+        own = drift.ref_path(run_cfg)            # F7: la referencia de distribución de la fuente de la ejecución
+        rref = ref if own == drift.REF_FILE else drift.load_reference(own)
+        m = compute(Path(r), expected, drift_ref=rref, agree_cfg=acfg, agree_ref=aref)
         if args.out_dir:
             Path(args.out_dir).mkdir(parents=True, exist_ok=True)
             out = Path(args.out_dir) / f"{m['run_id']}.json"

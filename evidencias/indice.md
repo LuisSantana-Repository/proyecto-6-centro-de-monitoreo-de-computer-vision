@@ -23,6 +23,7 @@ sección [Extras](#extras) abajo).
 | `3675d9a` | Extra M4 (`monitor.agreement`: acuerdo con yolo11s sobre los mismos frames, referencia y comparación pareada), con la ejecución `20261109T054751Z-m4-desenfoque` y las capturas 47–49. |
 | `0615a34` | Extra F6 (`/historico` y `monitor.history --verificar`: series por ventana de todas las ejecuciones, por ejecución o por hora de la escena), con las capturas 50–53 y las verificaciones en `evidencias/historico/`. |
 | `a697fd3` | Extra S5 (regla `trafico-bajo-v1`, ventana extendida e inyección de poco tráfico), con las ejecuciones S5-a y S5-b y las capturas 54–57. |
+| `4cef688` | Extra F7 (segunda cámara con su configuración, referencia, umbrales y muestreo; `monitor.sources`, `/fuentes` y filtro por fuente), con la referencia de la fuente 02, las dos parejas en vivo simultáneas y las capturas 58–65. |
 
 Respecto de `0862536`, `50b3b0a` agrega:
 - la muestra de recursos del proceso por evento (`resources`, para G3);

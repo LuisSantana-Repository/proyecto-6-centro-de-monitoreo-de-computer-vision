@@ -57,6 +57,9 @@ def load_config(path: str | Path) -> dict:
                or tl.get("index_timeout_s", 1) <= 0):
         raise ValueError("telemetry_health: consecutive_failures, recover_after_ok y max_buffer deben ser >= 1 "
                          "e index_timeout_s > 0")
+    lt = cfg.get("low_traffic")
+    if lt and (lt["consecutive_windows"] < 1 or lt["max_extension_windows"] < 2):
+        raise ValueError("low_traffic: consecutive_windows >= 1 y max_extension_windows >= 2")
     ag = cfg.get("agreement")
     if ag and (not 0 < ag["iou_min"] <= 1 or ag["min_frames"] < 1 or ag["min_objects"] < 1
                or (ag["reference"] != cfg["model"]["name"]

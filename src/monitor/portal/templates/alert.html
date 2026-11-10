@@ -47,6 +47,12 @@
     <dt>Resolución</dt><dd>destino <b>{{ al.resolution.sink }}</b> sin escribir durante {{ al.resolution.duration_s }} s
       ({{ al.resolution.n_failed }} muestras) · máximo {{ al.resolution.max_pending }} pendientes, todos aplicados en orden al
       recuperarse (muestra {{ al.resolution.recovered_at_seq }}) · <b>{{ al.resolution.lost }} perdidos</b></dd>
+    {% elif al.resolution and al.resolution.n_low_windows is defined %}
+    <dt>Resolución</dt><dd>poco tráfico durante {{ al.resolution.duration_s }} s ({{ al.resolution.n_low_windows }} ventanas
+      insuficientes con la fuente sana) · <b>{{ al.resolution.n_extended }} evaluaciones extendidas</b> cubrieron
+      {{ al.resolution.windows_covered }} de esas ventanas ({{ (al.resolution.extended_states or [])|join(', ') }}) ·
+      tiempo sin evaluar la confianza: <b>{{ al.resolution.blind_s_with_reaction }} s</b> con la reacción frente a
+      {{ al.resolution.blind_s_without_reaction }} s sin ella · resuelta por la primera ventana con evidencia suficiente</dd>
     {% elif al.resolution and al.resolution.n_errors is defined %}
     <dt>Resolución</dt><dd>inferencia fallida durante {{ al.resolution.duration_s }} s · {{ al.resolution.n_errors }} errores ·
       {{ al.resolution.n_reloads }} recarga(s) del modelo · resuelta por:
@@ -58,7 +64,12 @@
       <span class="mono">{{ (al.resolution.reported_model_refs or [])|join(', ') }}</span> ·
       primer evento con la versión esperada <a class="mono" href="/eventos/{{ al.resolution.first_ok_event_id }}">{{ al.resolution.first_ok_event_id }}</a></dd>
     {% endif %}
-    {% if al.metric.diagnostico %}{% set dg = al.metric.diagnostico %}
+    {% if al.metric.diagnostico and al.metric.diagnostico.causa == 'poco_trafico' %}{% set dg = al.metric.diagnostico %}
+    <dt>Diagnóstico</dt><dd>causa: <b>poco tráfico</b> · la fuente está sana ({{ dg.frames_validos }} frames válidos), pero hay
+      {{ dg.elegibles_por_frame }} detecciones elegibles por frame frente a {{ dg.referencia_por_frame }} en la referencia
+      ({{ '%.0f'|format(100 * dg.fraccion_de_la_referencia) if dg.fraccion_de_la_referencia is not none else '—' }} %): no es una
+      caída de la fuente (S1) ni baja confianza</dd>
+    {% elif al.metric.diagnostico %}{% set dg = al.metric.diagnostico %}
     <dt>Diagnóstico</dt><dd>etapa: <b>{{ dg.etapa }}</b> (la fuente entregó frame) ·
       {% for t, n in dg.tipos_de_error.items() %}<span class="mono">{{ t }}</span> × {{ n }}{{ ', ' if not loop.last }}{% endfor %}
       · {{ dg.capturas_del_fallo }} captura(s) del fallo</dd>
@@ -72,6 +83,21 @@
       {{ r.duracion_ms }} ms · tras {{ r.n_errores_seguidos }} errores seguidos{% if r.error %} · {{ r.error }}{% endif %}</td>
     {% else %}<td>efecto de la recarga {{ r.recarga }}</td><td><b>{{ 'efectiva' if r.efecto == 'efectiva' else 'sin efecto' }}</b>: la muestra siguiente quedó
       <span class="badge s-{{ r.status_siguiente }}">{{ r.status_siguiente }}</span></td>{% endif %}</tr>{% endfor %}
+  </tbody></table>
+  {% endif %}
+  {% if traffic %}
+  <h3>Reacción: ventanas extendidas <span class="muted small">(trafico.jsonl)</span></h3>
+  <table class="hist"><thead><tr><th>Ventana(s)</th><th>Registro</th><th>Detalle</th></tr></thead><tbody>
+  {% for r in traffic %}<tr>
+    {% if r.type == 'ventana' %}<td class="mono">{{ r.idx }}</td><td>{{ {'poco_trafico': 'poco tráfico', 'fuente': 'fuente (S1)'}.get(r.clasificacion, r.clasificacion|replace('_', ' ')) }}</td>
+      <td>{{ r.n_eligible }} elegibles en {{ r.n_valid }} frames válidos · {{ r.elegibles_por_frame }} por frame
+        (referencia {{ r.referencia_por_frame }})</td>
+    {% else %}<td class="mono">{{ r.ventanas|join(' + ') }}</td><td><b>evaluación extendida</b></td>
+      <td><span class="badge s-{{ 'ok' if r.estado == 'normal' else 'invalid_input' }}">{{ r.estado|replace('_', ' ') }}</span>
+        · {{ r.n_eligible }} elegibles{% if r.low_ratio is not none %} · prop. baja {{ '%.3f'|format(r.low_ratio) }} · media
+        {{ '%.3f'|format(r.mean_score) }}{% endif %}{% if r.condiciones and r.estado in ('normal', 'fuera_de_rango') %} · reglas:
+        {% for k, v in r.condiciones.items() %}{{ k }} {{ 'cumple' if v else 'no cumple' }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}
+        {% if r.nota %} · {{ r.nota }}{% endif %}</td>{% endif %}</tr>{% endfor %}
   </tbody></table>
   {% endif %}
   </div>

@@ -1,0 +1,19 @@
+# Escenario S5 · Poco tráfico: la fuente y el modelo funcionan, pero la escena casi vacía deja las ventanas sin
+# evidencia suficiente para las reglas de confianza. Hereda TODO de monitor.yaml (cfg-0b5e664b118c no cambia) y solo
+# agrega la regla de poco tráfico, su reacción y los parámetros de la inyección controlada.
+base: monitor.yaml
+
+low_traffic:
+  rule_id: trafico-bajo-v1
+  consecutive_windows: 1        # 1 ventana insuficiente con la fuente sana y pocas elegibles abre la alerta
+  max_extension_windows: 3      # reacción: se acumulan hasta 3 ventanas (6 min) para reunir min_eligible elegibles
+  severity: warning
+  suggested_action: >-
+    La fuente y el modelo funcionan, pero hay muy pocos objetos en la escena (madrugada, calle cerrada o encuadre
+    cambiado): las reglas de confianza no se pueden evaluar por ventana. Mientras dure, la confianza se evalúa sobre
+    ventanas extendidas (ver trafico.jsonl), con menos resolución temporal. Si el poco tráfico no corresponde a la
+    hora, revisar el encuadre de la cámara.
+  injection:                    # solo para --inject-low-traffic (escenario controlado)
+    plate: evidencias/entradas/s5-poco-trafico/escena-vacia.jpg   # mediana temporal de la grabación de C1
+    box: [440, 330, 840, 470]   # zona del cruce que se deja ver en modo `zona` (x0, y0, x1, y1)
+    feather: 25                 # borde suavizado (sigma en píxeles)

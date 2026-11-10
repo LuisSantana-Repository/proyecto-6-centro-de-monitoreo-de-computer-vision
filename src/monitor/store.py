@@ -219,7 +219,9 @@ class Store:
     # detalle de la resolución: regla de la fuente (S1) y regla de versión (S2)
     RESOLUTION = ("n_invalid", "downtime_s", "n_mismatch", "duration_s", "reported_model_refs", "first_ok_event_id",
                   "n_errors", "n_reloads", "reload_effective", "recovered_by",   # ... de inferencia (S3)
-                  "sink", "n_failed", "max_pending", "lost", "recovered_at_seq")  # ... y de telemetría (S4)
+                  "sink", "n_failed", "max_pending", "lost", "recovered_at_seq",  # ... de telemetría (S4)
+                  "n_low_windows", "n_extended", "extended_states", "windows_covered",  # ... y de poco tráfico (S5)
+                  "blind_s_without_reaction", "blind_s_with_reaction")
 
     def update_alert(self, upd: dict) -> None:
         res = {k: upd[k] for k in self.RESOLUTION if k in upd}

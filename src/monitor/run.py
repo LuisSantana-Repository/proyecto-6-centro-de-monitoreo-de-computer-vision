@@ -9,6 +9,7 @@ Uso:
   uv run python -m monitor.run --config config/escenario-version.yaml --replay ... --frames 240       --swap-model yolo11s:150:210 --label s2                                # escenario S2: cambio de versión
   uv run python -m monitor.run --config config/escenario-inferencia.yaml --replay ... --frames 240 --inject-inference-error corrupcion:150 --label s3a   # escenario S3: error de inferencia
   uv run python -m monitor.run --config config/escenario-telemetria.yaml --replay ... --frames 240 --inject-telemetry-loss indice:150:60 --label s4a   # escenario S4: pérdida de telemetría
+  uv run python -m monitor.run --config config/escenario-trafico.yaml --replay ... --frames 360 --inject-low-traffic zona:120:480 --label s5a   # escenario S5: poco tráfico
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from monitor.live import LiveWriter
 from monitor.policy import LOW, zone, zone_counts
 from monitor.source import FaultPlan, LiveYouTubeSource, ReplaySource, utc_now_iso
 from monitor.store import Store
+from monitor.traffic import LowTrafficFault, SceneComposer, TrafficMonitor
 from monitor.telemetry import BufferedLog, IndexSink, SinkStatus, TelemetryFault, TelemetryMonitor
 
 
@@ -102,6 +104,9 @@ def main() -> None:
     ap.add_argument("--inject-telemetry-loss", default=None, metavar="DESTINO:INICIO:DURACION",
                     help="escenario S4: indice (candado exclusivo real sobre SQLite) o registro (disco lleno "
                          "simulado para los JSONL) de INICIO a INICIO+DURACION segundos de stream")
+    ap.add_argument("--inject-low-traffic", default=None, metavar="MODO:INICIO:DURACION",
+                    help="escenario S5: zona (escena vacía + una zona real) o vacia (solo la escena vacía) de INICIO "
+                         "a INICIO+DURACION segundos de stream")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -127,6 +132,11 @@ def main() -> None:
     ifault = InferenceFault.parse(args.inject_inference_error) if args.inject_inference_error else None
     tfault = TelemetryFault.parse(args.inject_telemetry_loss) if args.inject_telemetry_loss else None
     th = cfg.get("telemetry_health") or {}
+    lfault = LowTrafficFault.parse(args.inject_low_traffic) if args.inject_low_traffic else None
+    if lfault and not (cfg.get("low_traffic") or {}).get("injection"):
+        raise SystemExit("--inject-low-traffic requiere low_traffic.injection en la configuración "
+                         "(config/escenario-trafico.yaml)")
+    composer: dict = {}
     if args.replay:
         source = ReplaySource(cfg, args.replay, pace=not args.no_pace, fault=fault)
     else:
@@ -174,6 +184,7 @@ def main() -> None:
         "model_swap": swap_info,
         "inference_fault": ifault.as_dict() if ifault else None,
         "telemetry_fault": tfault.as_dict() if tfault else None,
+        "low_traffic_fault": lfault.as_dict() if lfault else None,
     }
     # S4: el registro primario y el índice escriben con búfer / cola; un fallo no detiene el monitor
     stream_t = {"t": 0.0}
@@ -190,9 +201,12 @@ def main() -> None:
     health = SourceHealthMonitor(cfg, cref, run_id)
     version = ModelVersionMonitor(cfg, cref, run_id)
     inference = InferenceHealthMonitor(cfg, cref, run_id)
+    traffic = TrafficMonitor(cfg, cref, run_id)
     # S3: registro de la reacción (recargas del modelo y su efecto); solo si la regla o el fallo existen
     inf_log = JsonlLog("inferencia.jsonl") if (cfg.get("inference_health") or ifault) else None
-    logs = [x for x in (writer, win_log, alert_log, health_log, tel_log, inf_log) if x]
+    # S5: clasificación de cada ventana y evaluaciones extendidas
+    traf_log = JsonlLog("trafico.jsonl") if (cfg.get("low_traffic") or lfault) else None
+    logs = [x for x in (writer, win_log, alert_log, health_log, tel_log, inf_log, traf_log) if x]
     probe = ResourceProbe(run_dir)
     manifest["environment"]["cpu_count_logical"] = psutil.cpu_count()
     manifest["environment"]["ram_total_gb"] = round(psutil.virtual_memory().total / 2**30, 1)
@@ -253,6 +267,14 @@ def main() -> None:
         ms = f"{win.mean_score:.3f}" if win.mean_score is not None else "-"
         print(f"  == ventana {win.idx}: {win.state} (prop_baja={lr} media={ms} elegibles={win.n_eligible})")
         handle_alerts(new_alerts, updates)
+        t_alerts, t_updates, t_logs = traffic.add(win)
+        for rec in t_logs:
+            traf_log.write(rec)
+            if rec["type"] == "extendida":
+                lr_ = f"{rec['low_ratio']:.3f}" if rec["low_ratio"] is not None else "-"
+                print(f"  >> ventana extendida {rec['ventanas']}: {rec['estado']} (prop_baja={lr_} "
+                      f"elegibles={rec['n_eligible']})")
+        handle_alerts(t_alerts, t_updates)
 
     def reload_model(ev: InferenceEvent) -> Detector | None:
         """Reacción de S3: recarga el modelo desde los pesos, verificando antes su SHA-256."""
@@ -292,6 +314,11 @@ def main() -> None:
                 status = "invalid_input"
                 err = fr.error or "frame no disponible o no decodificable"
             else:
+                if lfault and lfault.active_at((fr.seq - 1) * interval):
+                    # S5: poco tráfico inyectado (escena vacía + zona); el evento y las capturas usan este frame
+                    if "c" not in composer:
+                        composer["c"] = SceneComposer(cfg["low_traffic"]["injection"], lfault.mode, fr.image.shape[:2])
+                    fr.image = composer["c"].apply(fr.image)
                 if args.record:
                     cv2.imwrite(str(rec_dir / f"{fr.seq:06d}.jpg"), fr.image)
                 try:
@@ -356,6 +383,7 @@ def main() -> None:
             handle_alerts(new_a, upd_a)
             if want_reload:
                 detector = reload_model(ev) or detector
+            traffic.observe(ev)
             handle_window(evaluator.add(ev))
             if tel_log:                           # S4: estado de cada destino en esta muestra
                 obs = {"seq": fr.seq, "at": fr.captured_at,

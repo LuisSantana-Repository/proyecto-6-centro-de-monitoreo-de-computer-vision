@@ -10,6 +10,7 @@ forma de verificarlo.
 | **S2** | Escenario | Cambio de versión del modelo no declarado, reacción y reversión | 10 | completo |
 | **S3** | Escenario | Error de inferencia: diagnóstico de etapa, recarga automática del modelo y su efecto verificado | 10 | completo: S3-a y S3-b |
 | **S4** | Escenario | Pérdida de telemetría: índice bloqueado o registro sin espacio, sin perder datos, verificado | 10 | completo: S4-a y S4-b |
+| **S5** | Escenario | Poco tráfico: diagnóstico frente a la referencia, ventana extendida y tiempo ciego medido con y sin la reacción | 10 | completo: S5-a y S5-b |
 | **M1** | Métrica | Desplazamiento de la distribución de puntuaciones frente a la referencia (Wasserstein-1) | 8 | completo |
 | **M2** | Métrica | Latencia de punta a punta (frame → evento), p50/p95 por ejecución y por ventana | 5 | completo |
 | **M3** | Métrica | Tiempo de recuperación de la fuente y disponibilidad por ventana | 5 | completo (con S1-R, S1-V y S1-W) |
@@ -121,6 +122,33 @@ y el modelo funcionan. Detalle, reproducción y límites: [`docs/escenario-s4.md
   [`43`](../evidencias/portal/43-vivo-indice-bloqueado.png)–[`46`](../evidencias/portal/46-alerta-telemetria-s4b.png)
   (la vista en vivo durante el candado y el 503 del portal), [`tests/test_telemetry.py`](../tests/test_telemetry.py)
   (7 pruebas: candado real, búfer con pérdida explícita, regla, 503 y punta a punta para los dos destinos).
+
+## S5 · Poco tráfico (escenario, nivel 10)
+
+La fuente y el modelo funcionan, pero la escena casi vacía deja las ventanas sin evidencia para las reglas de
+confianza. Detalle, reproducción y límites: [`docs/escenario-s5.md`](escenario-s5.md).
+
+- **Por qué no es C1, C2 ni S1–S4.** S1 también deja ventanas `insuficiente`, pero porque faltan frames. En S5
+  llegan todos los frames (60/60) y faltan objetos. Antes, las dos causas se veían igual y nada reaccionaba.
+  Agrega su propia regla (`trafico-bajo-v1`), con diagnóstico frente a la referencia (elegibles por frame), una
+  reacción (ventana extendida que evalúa las reglas de confianza sobre varias ventanas juntas) y su registro
+  (`trafico.jsonl`).
+- **Dos variantes con condiciones de aceptación distintas**, sobre la grabación de C1, con una escena vacía
+  (mediana temporal) inyectada:
+  - **S5-a, zona** (`20261110T053920Z-s5a-poco-trafico`). Solo el centro del cruce visible en las muestras
+    61–300: ~3 elegibles por frame (11 % de la referencia). Una alerta y dos ventanas extendidas (2+3 y 4+5),
+    ambas `normal`. Resuelta en la ventana 6 con **0 s sin evaluar la confianza** (480 s sin la reacción).
+  - **S5-b, escena vacía** (`20261110T053925Z-s5b-escena-vacia`). En las muestras 61–240, solo un objeto fijo
+    por frame. La extensión 2+3+4 queda `insuficiente_aun_extendida` (180 < 300): la reacción no alcanza, y la
+    resolución lo registra (360 s sin evaluar con y sin ella).
+- **Verificación posterior.** `monitor.evaluate` coincide en las dos. Fuera del intervalo inyectado, las
+  detecciones son idénticas a C1 (120/120 en cada una).
+- **Evidencia:** registros con `trafico.jsonl`, escena vacía y ejemplos en
+  [`evidencias/entradas/s5-poco-trafico/`](../evidencias/entradas/s5-poco-trafico/), capturas
+  [`54`](../evidencias/portal/54-alerta-trafico-s5a.png)–[`57`](../evidencias/portal/57-graficas-s5a.png),
+  [`tests/test_traffic.py`](../tests/test_traffic.py) (5 pruebas: extensión exitosa, fallida, interrumpida y
+  fuera de rango; caída de la fuente que no es poco tráfico; inyección; punta a punta con `monitor.run` real,
+  `evaluate` y el portal).
 
 ## M1 · Desplazamiento de la distribución frente a la referencia (métrica, nivel 8)
 
@@ -308,6 +336,9 @@ estados vacíos o erróneos. Código: [`src/monitor/history.py`](../src/monitor/
 - F6 no repite F1 ni F5: F1 grafica las ventanas de una sola ejecución y F5 cuenta estados sin series. F6
   compara la misma señal entre ejecuciones y por hora de la escena, con su propia verificación. Usa las
   métricas base G1 y G4 por ventana, que no se cobran; tampoco reclama M4 ni W1, que no grafica.
+- S5 no repite la ventana `insuficiente` de la base (R3) ni S1: la base solo marca la ventana, y S1 trata la
+  falta de frames. S5 distingue la causa (fuente sana, pocos objetos), reacciona evaluando la confianza sobre
+  ventanas extendidas y mide el tiempo ciego evitado. S5-a y S5-b se reclaman como un solo extra.
 - F2 no repite F1 ni las vistas base: agrega acciones humanas con estado, persistencia y reglas de
   transición. Las capturas y alertas que revisa son las mismas de C1, C2, S1 y S2, que no se vuelven
   a contar.

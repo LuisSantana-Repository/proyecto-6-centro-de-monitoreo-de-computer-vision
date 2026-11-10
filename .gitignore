@@ -24,6 +24,8 @@ datos/runs/*
 !datos/runs/20261109T033540Z-s4a-indice-bloqueado/
 !datos/runs/20261109T034343Z-s4b-registro-sin-espacio/
 !datos/runs/20261109T054751Z-m4-desenfoque/
+!datos/runs/20261110T053920Z-s5a-poco-trafico/
+!datos/runs/20261110T053925Z-s5b-escena-vacia/
 datos/grabaciones/
 datos/logs/
 datos/exportaciones.jsonl

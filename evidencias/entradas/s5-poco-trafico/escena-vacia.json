@@ -1,0 +1,7 @@
+{
+  "generated_at": "2026-11-10T05:29:54.610Z",
+  "grabacion": "datos/grabaciones/20261108T050904Z-c1-normal",
+  "frames_usados": 150,
+  "cada": 3,
+  "metodo": "mediana temporal por píxel (quita lo que se mueve)"
+}

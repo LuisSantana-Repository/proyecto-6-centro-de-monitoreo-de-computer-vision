@@ -17,6 +17,7 @@ from pathlib import Path
 from monitor.alerts import InferenceHealthMonitor, ModelVersionMonitor, SourceHealthMonitor, WindowEvaluator
 from monitor.events import InferenceEvent
 from monitor.telemetry import TelemetryMonitor
+from monitor.traffic import TrafficMonitor
 
 
 def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[list[dict], list[dict]]:
@@ -32,6 +33,7 @@ def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[li
     args = (cfg, manifest["config_ref"], manifest["run_id"])
     ev, health, version = WindowEvaluator(*args), SourceHealthMonitor(*args), ModelVersionMonitor(*args)
     inference = InferenceHealthMonitor(*args)       # S3: la apertura depende solo de los eventos
+    traffic = TrafficMonitor(*args)                 # S5: se alimenta de los eventos y de cada ventana cerrada
     windows, alerts = [], []
     results = []
     for line in open(run_dir / "events.jsonl", encoding="utf-8"):
@@ -39,8 +41,13 @@ def recompute(run_dir: Path, without_version_reaction: bool = False) -> tuple[li
         alerts += health.add(e)[0]        # mismo orden que run.py: fuente, versión, luego ventana
         alerts += version.add(e)[0]
         alerts += inference.add(e)[0]
+        traffic.observe(e)
         results.append(ev.add(e))
+        if results[-1][0] is not None:
+            alerts += traffic.add(results[-1][0])[0]
     results.append(ev.flush())
+    if results[-1][0] is not None:
+        alerts += traffic.add(results[-1][0])[0]
     # S4: la regla de telemetría no se deriva de los eventos sino del estado de los destinos por muestra
     if (run_dir / "telemetria.jsonl").exists():
         tel = TelemetryMonitor(*args)

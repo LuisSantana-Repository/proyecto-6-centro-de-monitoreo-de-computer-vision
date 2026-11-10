@@ -332,6 +332,17 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         recs = [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
         return [r for r in recs if first <= r["seq"] <= last]
 
+    def traffic_reaction(al: dict) -> list[dict]:
+        """S5: clasificación de cada ventana del episodio y evaluaciones extendidas, desde trafico.jsonl."""
+        f = root / runs_dir / (al["run_id"] or "") / "trafico.jsonl"
+        if not al["rule_id"].startswith("trafico-") or not al["run_id"] or not f.is_file():
+            return []
+        first = int(al["alert_id"].rsplit("-w", 1)[1])
+        end = al["resolution"].get("resolved_by_window")
+        last = int(end.rsplit("-", 1)[1]) if end else 10**9
+        recs = [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
+        return [r for r in recs if first <= (r["idx"] if r["type"] == "ventana" else r["ventanas"][0]) <= last]
+
     def render_alert(request: Request, alert_id: str, status_code: int = 200, **review) -> HTMLResponse:
         al = alert_or_404(alert_id)
         ids = al["event_ids"]
@@ -343,6 +354,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         for e in evs:
             e["review"] = capture_state(caps.get(e["event_id"], []))
         return templates.TemplateResponse(request, "alert.html", {"al": al, "events": evs, "reaction": reaction(al),
+                                                                  "traffic": traffic_reaction(al),
                                                                   **review_ctx(request, "alert", alert_id, **review)},
                                           status_code=status_code)
 
@@ -592,7 +604,7 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
         lr, ms, w = d["low_ratio"], d["mean_score"], d["w1"]
 
         def only(points, rule):     # cada gráfica marca las alertas de su regla, de la fuente y de versión
-            keep = lambda r: r.startswith(("fuente-", "version-", "inferencia-", "telemetria-")) or (rule is not None and r == rule["rule_id"])
+            keep = lambda r: r.startswith(("fuente-", "version-", "inferencia-", "telemetria-", "trafico-")) or (rule is not None and r == rule["rule_id"])
             return [{**p, "alerts": [r for r in p["alerts"] if keep(r)]} for p in points]
 
         lr["points"] = only(lr["points"], lr["rule"])

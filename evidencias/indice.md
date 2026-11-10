@@ -2,7 +2,7 @@
 
 **Estudiante:** Luis Santana · **Entrega:** individual · **Configuración:** `cfg-0b5e664b118c`
 ([`config/monitor.yaml`](../config/monitor.yaml)) · **Modelo:** `yolo11n@sha256:0ebbc80d4a76`
-([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, S4, M1, M2, M3, M4, F1, F2, F3, F4, F5 y F6 ([`docs/extras.md`](../docs/extras.md);
+([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, S4, S5, M1, M2, M3, M4, F1, F2, F3, F4, F5 y F6 ([`docs/extras.md`](../docs/extras.md);
 sección [Extras](#extras) abajo).
 
 ## Revisiones Git
@@ -59,6 +59,8 @@ de los eventos resuelven tal cual. Cada carpeta contiene:
 | `20261109T030642Z-s3b-persistente` | extra **S3-b** | grabación de C1; inferencia fallida en las muestras 151–180, recargas sin efecto | 1 frame / 2 s |
 | `20261109T033540Z-s4a-indice-bloqueado` | extra **S4-a** | grabación de C1; candado exclusivo real sobre el índice en las muestras 76–105 | 1 frame / 2 s |
 | `20261109T034343Z-s4b-registro-sin-espacio` | extra **S4-b** | grabación de C1; registro primario sin espacio (simulado) en las muestras 166–185 | 1 frame / 2 s |
+| `20261110T053920Z-s5a-poco-trafico` | extra **S5-a** | grabación de C1; poco tráfico (solo el centro del cruce sobre la escena vacía) en las muestras 61–300 | 1 frame / 2 s |
+| `20261110T053925Z-s5b-escena-vacia` | extra **S5-b** | grabación de C1; escena vacía en las muestras 61–240 | 1 frame / 2 s |
 | `20261109T054751Z-m4-desenfoque` | extra **M4** (caso controlado) | grabación de C1, muestras 121–240 con desenfoque σ = 3 ([`entradas/m4-desenfoque/`](entradas/m4-desenfoque/)) | sin pausa |
 | `20261109T005919Z-f4-vivo` | extra **F4** (10:00 JST, lluvia) | cámara en vivo con la vista en vivo publicada (90 frames) | en vivo |
 
@@ -103,7 +105,7 @@ Desde un clon limpio:
 ```bash
 uv sync
 uv run python -m monitor.download_model         # pesos verificados por SHA-256
-uv run pytest -q                                # 138 pruebas
+uv run pytest -q                                # 143 pruebas
 
 # 1) Recalcular desde los registros primarios versionados (sin modelo)
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
@@ -122,7 +124,7 @@ uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --l
 ```
 
 Comprobado en un clon limpio de `97469f3` (antes de los extras), descargado desde GitHub el 2026-11-08:
-- 29 pruebas pasan (hoy son 138).
+- 29 pruebas pasan (hoy son 143).
 - `evaluate` coincide en las cuatro ejecuciones.
 - Las métricas de C2 son idénticas a [`metricas/`](metricas/).
 - La muestra de C2 reproduce la ventana 1 y su alerta.
@@ -187,6 +189,10 @@ Las capturas están en [`portal/`](portal/); se tomaron con Edge headless sobre 
 | 51 | `/historico?eje=hora` | F6: la misma señal por hora de la escena (JST): pesa más el día que la hora |
 | 52 | `/historico?senal=inferencia_p95&modo=replay` | F6: inferencia p95 sobre los mismos frames, de 300–420 ms (8 nov) a 120–175 ms (9 nov) |
 | 53 | `/historico?senal=fps&eje=dia` | F6: filtro no válido, 422 con el motivo |
+| 54 | `/alertas/…s5a-…-trafico-bajo-v1-w0002` | S5-a: diagnóstico (11 % de la referencia) y dos ventanas extendidas `normal`; 0 s sin evaluar |
+| 55 | `/alertas/…s5b-…-trafico-bajo-v1-w0002` | S5-b: la extensión no alcanza (`insuficiente_aun_extendida`) |
+| 56 | `/runs/20261110T053920Z-s5a-poco-trafico` | S5-a: ventanas 2–5 `insuficiente` con la fuente sana |
+| 57 | `/graficas?run_id=…s5a-poco-trafico` | F1 sobre S5-a: lo que se ve sin la reacción (cuatro ventanas sin evaluar) |
 
 Respuestas JSON de la API en el mismo momento: [`portal/api/`](portal/api/).
 
@@ -200,6 +206,7 @@ Detalle, definiciones y control de doble conteo: [`docs/extras.md`](../docs/extr
 | **S2** cambio de versión del modelo | 10 | ejecución `20261108T232126Z-s2-cambio-version`; [`docs/escenario-s2.md`](../docs/escenario-s2.md#resultados); capturas [`20`](portal/20-run-s2.png)–[`22`](portal/22-graficas-s2.png); [`portal/api/alerta-version-s2.json`](portal/api/alerta-version-s2.json); [`tests/test_model_version.py`](../tests/test_model_version.py) |
 | **S3** error de inferencia | 10 | ejecuciones S3-a y S3-b (tabla de arriba, con `inferencia.jsonl`); [`docs/escenario-s3.md`](../docs/escenario-s3.md#resultados); capturas [`39`](portal/39-alerta-inferencia-s3a.png)–[`42`](portal/42-graficas-s3b.png); [`portal/api/alerta-inferencia-s3a.json`](portal/api/alerta-inferencia-s3a.json); [`tests/test_inference_health.py`](../tests/test_inference_health.py) |
 | **S4** pérdida de telemetría | 10 | ejecuciones S4-a y S4-b (tabla de arriba, con `telemetria.jsonl`); [`docs/escenario-s4.md`](../docs/escenario-s4.md#resultados); capturas [`43`](portal/43-vivo-indice-bloqueado.png)–[`46`](portal/46-alerta-telemetria-s4b.png); [`tests/test_telemetry.py`](../tests/test_telemetry.py) |
+| **S5** poco tráfico | 10 | ejecuciones S5-a y S5-b (tabla de arriba, con `trafico.jsonl`); [`docs/escenario-s5.md`](../docs/escenario-s5.md#resultados); [`entradas/s5-poco-trafico/`](entradas/s5-poco-trafico/); capturas [`54`](portal/54-alerta-trafico-s5a.png)–[`57`](portal/57-graficas-s5a.png); [`tests/test_traffic.py`](../tests/test_traffic.py) |
 | **F2** revisión humana de alertas y capturas | 15 | `datos/runs/*/revisiones.jsonl` (9 acciones); capturas [`23`](portal/23-revision-cola-s1-wifi.png)–[`27`](portal/27-alertas-por-revision.png); [`portal/api/revisiones.json`](portal/api/revisiones.json); [`tests/test_review.py`](../tests/test_review.py) |
 | **F3** exportación de eventos | 10 | [`exportaciones/`](exportaciones/) (4 archivos + registro, verificados con `monitor.export --verificar`); capturas [`28`](portal/28-exportar-vista-previa.png)–[`30`](portal/30-exportar-error.png); [`tests/test_export.py`](../tests/test_export.py) |
 | **F4** vista en vivo | 15 | ejecución `20261109T005919Z-f4-vivo`; capturas [`31`](portal/31-vivo-en-curso.png)–[`34`](portal/34-vivo-estancada.png); [`tests/test_live.py`](../tests/test_live.py) |

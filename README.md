@@ -51,6 +51,7 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana, revisión humana |
 | [`history.py`](src/monitor/history.py) | Extra F6: series históricas por ventana (por ejecución o por hora de la escena) y su verificación contra los registros primarios |
 | [`dashboard.py`](src/monitor/dashboard.py) | Extra F5: panel de operación (indicadores, reglas de atención, estado por ejecución) y su verificación contra los registros primarios |
+| [`traffic.py`](src/monitor/traffic.py) | Extra S5: regla `trafico-bajo-v1`, ventana extendida e inyección de poco tráfico (escena vacía) |
 | [`telemetry.py`](src/monitor/telemetry.py) | Extra S4: escritura con búfer del registro primario, cola ordenada del índice y regla `telemetria-perdida-v1` |
 | [`live.py`](src/monitor/live.py) | Extra F4: estado en vivo que publica `monitor.run` (`datos/vivo/<run_id>/`) y su clasificación para `/vivo` |
 | [`review.py`](src/monitor/review.py) | Extra F2: estados y reglas de la revisión humana de alertas y capturas (`revisiones.jsonl` + tabla `reviews`) |
@@ -89,6 +90,7 @@ configuración, `cfg-0b5e664b118c` en las evidencias) y `model_ref` (`yolo11n@sh
 | Desplazamiento de la distribución (M1) | `uv run python -m monitor.drift datos/runs/<run_id>` (referencia: `--build <ref1> <ref2>`) |
 | Escenario S1: corte de la fuente | `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --inject-outage 180:90 ...` |
 | Métrica M4: acuerdo entre modelos | `uv run python -m monitor.agreement medir datos/runs/<run_id>` y después `monitor.metrics` (o `monitor.agreement reporte`, sin modelo) |
+| Escenario S5: poco tráfico | `uv run python -m monitor.run --config config/escenario-trafico.yaml --inject-low-traffic zona:120:480 ...` (o `vacia:120:360`) |
 | Escenario S4: pérdida de telemetría | `uv run python -m monitor.run --config config/escenario-telemetria.yaml --inject-telemetry-loss indice:150:60 ...` (o `registro:330:40`) |
 | Escenario S3: error de inferencia | `uv run python -m monitor.run --config config/escenario-inferencia.yaml --inject-inference-error corrupcion:150 ...` (o `persistente:300:60`) |
 | Escenario S2: cambio de versión del modelo | `uv run python -m monitor.run --config config/escenario-version.yaml --swap-model yolo11s:150:210 ...` (pesos: `monitor.download_model --config config/escenario-version.yaml`) |
@@ -199,6 +201,7 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | S2 | Escenario: cambio de versión del modelo no declarado ([`docs/escenario-s2.md`](docs/escenario-s2.md)) | 10 |
 | S3 | Escenario: error de inferencia, con recarga automática del modelo ([`docs/escenario-s3.md`](docs/escenario-s3.md)) | 10 |
 | S4 | Escenario: pérdida de telemetría (índice bloqueado o registro sin espacio) sin perder datos ([`docs/escenario-s4.md`](docs/escenario-s4.md)) | 10 |
+| S5 | Escenario: poco tráfico, con diagnóstico y ventana extendida ([`docs/escenario-s5.md`](docs/escenario-s5.md)) | 10 |
 | M1 | Métrica: desplazamiento de la distribución de puntuaciones frente a la referencia (W1) | 8 |
 | M2 | Métrica: latencia de punta a punta (frame → evento) | 5 |
 | M3 | Métrica: tiempo de recuperación de la fuente y disponibilidad | 5 |

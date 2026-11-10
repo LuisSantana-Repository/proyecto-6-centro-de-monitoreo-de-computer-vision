@@ -45,8 +45,9 @@ YouTube HLS ──yt-dlp──▶ LiveYouTubeSource ─┐   (o ReplaySource: gr
 | [`store.py`](src/monitor/store.py), [`ingest.py`](src/monitor/ingest.py) | Persistencia SQLite e ingesta idempotente desde los JSONL |
 | [`reference.py`](src/monitor/reference.py) | Estadísticas de referencia y umbrales derivados |
 | [`evaluate.py`](src/monitor/evaluate.py) | Recalcula ventanas y alertas desde `events.jsonl` y las compara con lo registrado |
-| [`metrics.py`](src/monitor/metrics.py) | Métricas base G1–G7 y adicionales M2–M3 por ejecución y por ventana |
+| [`metrics.py`](src/monitor/metrics.py) | Métricas base G1–G7 y adicionales M2–M4 por ejecución y por ventana |
 | [`drift.py`](src/monitor/drift.py) | Métrica adicional M1: W1 de las puntuaciones frente a la referencia |
+| [`agreement.py`](src/monitor/agreement.py) | Métrica adicional M4: acuerdo con un modelo de referencia sobre los mismos frames (medir, referencia, comparar, degradar) |
 | [`portal/`](src/monitor/portal/) | Portal FastAPI: eventos (filtros), detalle con cajas, alertas, runs, configuración, gráficas por ventana, revisión humana |
 | [`dashboard.py`](src/monitor/dashboard.py) | Extra F5: panel de operación (indicadores, reglas de atención, estado por ejecución) y su verificación contra los registros primarios |
 | [`telemetry.py`](src/monitor/telemetry.py) | Extra S4: escritura con búfer del registro primario, cola ordenada del índice y regla `telemetria-perdida-v1` |
@@ -83,9 +84,10 @@ configuración, `cfg-0b5e664b118c` en las evidencias) y `model_ref` (`yolo11n@sh
 | Reprocesar una grabación sin esperar (análisis) | `... --replay <carpeta> --no-pace` |
 | Estadísticas de referencia y umbrales derivados | `uv run python -m monitor.reference datos/runs/<ref1> datos/runs/<ref2> --out config/referencia.json` |
 | Recalcular ventanas y alertas y verificarlas | `uv run python -m monitor.evaluate datos/runs/<run_id>` |
-| Métricas G1–G7 (+ adicionales M1–M3) | `uv run python -m monitor.metrics datos/runs/<run_id> --out-dir evidencias/metricas` |
+| Métricas G1–G7 (+ adicionales M1–M4) | `uv run python -m monitor.metrics datos/runs/<run_id> --out-dir evidencias/metricas` |
 | Desplazamiento de la distribución (M1) | `uv run python -m monitor.drift datos/runs/<run_id>` (referencia: `--build <ref1> <ref2>`) |
 | Escenario S1: corte de la fuente | `uv run python -m monitor.run --config config/escenario-interrupcion.yaml --inject-outage 180:90 ...` |
+| Métrica M4: acuerdo entre modelos | `uv run python -m monitor.agreement medir datos/runs/<run_id>` y después `monitor.metrics` (o `monitor.agreement reporte`, sin modelo) |
 | Escenario S4: pérdida de telemetría | `uv run python -m monitor.run --config config/escenario-telemetria.yaml --inject-telemetry-loss indice:150:60 ...` (o `registro:330:40`) |
 | Escenario S3: error de inferencia | `uv run python -m monitor.run --config config/escenario-inferencia.yaml --inject-inference-error corrupcion:150 ...` (o `persistente:300:60`) |
 | Escenario S2: cambio de versión del modelo | `uv run python -m monitor.run --config config/escenario-version.yaml --swap-model yolo11s:150:210 ...` (pesos: `monitor.download_model --config config/escenario-version.yaml`) |
@@ -199,6 +201,7 @@ Inventario completo, con evidencia y control de doble conteo: [`docs/extras.md`]
 | M1 | Métrica: desplazamiento de la distribución de puntuaciones frente a la referencia (W1) | 8 |
 | M2 | Métrica: latencia de punta a punta (frame → evento) | 5 |
 | M3 | Métrica: tiempo de recuperación de la fuente y disponibilidad | 5 |
+| M4 | Métrica: acuerdo entre modelos (yolo11n frente a yolo11s sobre los mismos frames), con caso controlado ([`docs/metrica-m4.md`](docs/metrica-m4.md)) | 8 |
 | F1 | Funcionalidad: gráficas por ventana en el portal (`/graficas`) | 10 |
 | F2 | Funcionalidad: revisión humana de alertas y capturas (`/revision`) | 15 |
 | F3 | Funcionalidad: exportación de eventos y detecciones con procedencia y verificación (`/exportar`) | 10 |

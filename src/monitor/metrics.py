@@ -1,6 +1,7 @@
 """Métricas base por grupo (G1–G7), calculadas desde los registros primarios de una ejecución.
 
-Entradas: datos/runs/<run>/events.jsonl, alerts.jsonl y manifest.json (configuración guardada).
+Entradas: datos/runs/<run>/events.jsonl, alerts.jsonl y manifest.json (configuración guardada); para la
+métrica adicional M4, acuerdo.jsonl (detecciones del modelo de referencia, de monitor.agreement medir).
 Salida: un JSON por ejecución con cada métrica por ejecución y, cuando aplica, por ventana de
 `windows.size_frames` eventos (las mismas ventanas que usan las alertas).
 
@@ -21,7 +22,7 @@ import numpy as np
 
 from monitor.alerts import window_stats
 from monitor.config import load_config
-from monitor import drift
+from monitor import agreement, drift
 from monitor.events import InferenceEvent
 from monitor.policy import zone
 
@@ -177,8 +178,17 @@ def m3_recovery(alert_log: list[dict], events: list[InferenceEvent]) -> dict:
 
 
 # -- ejecución -------------------------------------------------------------------
+def m4_agreement(run_dir: Path, events: list[InferenceEvent], cfg: dict, acfg: dict | None, ref: dict | None) -> dict:
+    """M4 · acuerdo entre modelos (monitor.agreement), recalculado desde acuerdo.jsonl sin correr ningún modelo."""
+    f = run_dir / agreement.OUT
+    if acfg is None or not f.exists():
+        return {"valor": None, "estado": "sin_datos", "n": 0, "ventanas": [],
+                "nota": "sin acuerdo.jsonl: uv run python -m monitor.agreement medir <run>"}
+    return agreement.run_agreement(events, agreement.load_records(f), cfg, acfg, ref)
+
+
 def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("."),
-            drift_ref: dict | None = None) -> dict:
+            drift_ref: dict | None = None, agree_cfg: dict | None = None, agree_ref: dict | None = None) -> dict:
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     cfg = manifest["config"]
     floor, lower = cfg["policy"]["analysis_floor"], cfg["policy"]["lower"]
@@ -190,6 +200,8 @@ def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("
     exp = expected_cfg or cfg
     expected_model_ref = f"{exp['model']['name']}@sha256:{exp['model']['sha256'][:12]}"
 
+    m4 = m4_agreement(run_dir, events, cfg, agree_cfg, agree_ref)
+    m4_w = {w["idx"]: w["acuerdo"] for w in m4["ventanas"]}
     windows = []
     for i, ch in enumerate(chunks(events, size), start=1):
         windows.append({
@@ -206,6 +218,7 @@ def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("
             "M2_e2e_p95_ms": m2_e2e_latency(ch)["p95_ms"],
             "M3_disponibilidad_fuente": availability(ch),
             "G6_prop_version_esperada": g6_version(ch, expected_model_ref)["valor"],
+            "M4_acuerdo_modelos": m4_w.get(i),
         })
 
     paced = manifest.get("paced", True)
@@ -238,6 +251,8 @@ def compute(run_dir: Path, expected_cfg: dict | None = None, root: Path = Path("
             "M2_latencia_e2e": {**m2_e2e_latency(events),
                                 "nota": "del frame obtenido al evento creado; excluye la escritura del evento"},
             "M3_recuperacion_fuente": m3_recovery(alert_log, events),
+            # M4 · acuerdo con un modelo de referencia sobre los mismos frames (monitor.agreement)
+            "M4_acuerdo_modelos": m4,
         },
         "contexto_fuente": manifest.get("source_stats"),
         "ventanas": windows,
@@ -250,11 +265,15 @@ def main() -> None:
     ap.add_argument("--config", default="config/monitor.yaml", help="configuración desplegada (versión esperada)")
     ap.add_argument("--out-dir", default=None)
     ap.add_argument("--drift-ref", default=drift.REF_FILE, help="referencia de la métrica adicional M1")
+    ap.add_argument("--acuerdo-config", default=agreement.CONFIG, help="parámetros de la métrica adicional M4")
+    ap.add_argument("--acuerdo-ref", default=agreement.REF_FILE, help="referencia de la métrica adicional M4")
     args = ap.parse_args()
     expected = load_config(args.config)
     ref = drift.load_reference(args.drift_ref)
+    acfg = load_config(args.acuerdo_config) if Path(args.acuerdo_config).exists() else None
+    aref = agreement.load_reference(args.acuerdo_ref)
     for r in args.runs:
-        m = compute(Path(r), expected, drift_ref=ref)
+        m = compute(Path(r), expected, drift_ref=ref, agree_cfg=acfg, agree_ref=aref)
         if args.out_dir:
             Path(args.out_dir).mkdir(parents=True, exist_ok=True)
             out = Path(args.out_dir) / f"{m['run_id']}.json"
@@ -273,6 +292,9 @@ def main() -> None:
         rc = ad["M3_recuperacion_fuente"]
         print(f"   {'M3_recuperacion_fuente':34s} {str(rc['valor']):>8} s · incidentes={rc['n']} "
               f"abiertos={rc['incidentes_abiertos']} disponibilidad={rc['disponibilidad']}")
+        ag = ad["M4_acuerdo_modelos"]
+        print(f"   {'M4_acuerdo_modelos':34s} {str(ag['valor']):>8} · ventanas bajo el piso "
+              f"{ag.get('piso_referencia')}: {ag.get('ventanas_bajo_referencia')}/{ag['n']}")
 
 
 if __name__ == "__main__":

@@ -136,6 +136,88 @@
       "incidentes_abiertos": 0,
       "disponibilidad": 1.0,
       "incidentes": []
+    },
+    "M4_acuerdo_modelos": {
+      "valor": 0.813,
+      "unidad": "proporción (Dice de detecciones emparejadas)",
+      "n": 4,
+      "estado": "ok",
+      "modelo_referencia": "yolo11s@sha256:85a76fe86dd8",
+      "cobertura_referencia": 0.7589,
+      "respaldo_produccion": 0.8754,
+      "acuerdo_sin_clase": 0.8256,
+      "frames": {
+        "medido": 240,
+        "excluido": 0,
+        "sin_frame": 0
+      },
+      "eventos_sin_registro": 0,
+      "piso_referencia": 0.6178,
+      "ventanas_bajo_referencia": 0,
+      "min_ventana": 0.6234,
+      "definicion": "2·pares / (n_prod + n_ref); s >= 0.25, misma clase, IoU >= 0.5",
+      "ventanas": [
+        {
+          "idx": 1,
+          "first_event_id": "evt-20261108T232126Z-s2-cambio-version-f000001",
+          "last_event_id": "evt-20261108T232126Z-s2-cambio-version-f000060",
+          "acuerdo": 0.6819,
+          "cobertura_referencia": 0.6117,
+          "respaldo_produccion": 0.7705,
+          "acuerdo_sin_clase": 0.7115,
+          "n_frames": 60,
+          "m": 923,
+          "m_sin_clase": 963,
+          "n_prod": 1198,
+          "n_ref": 1509,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 2,
+          "first_event_id": "evt-20261108T232126Z-s2-cambio-version-f000061",
+          "last_event_id": "evt-20261108T232126Z-s2-cambio-version-f000120",
+          "acuerdo": 0.909,
+          "cobertura_referencia": 0.8597,
+          "respaldo_produccion": 0.9642,
+          "acuerdo_sin_clase": 0.9137,
+          "n_frames": 60,
+          "m": 1348,
+          "m_sin_clase": 1355,
+          "n_prod": 1398,
+          "n_ref": 1568,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 3,
+          "first_event_id": "evt-20261108T232126Z-s2-cambio-version-f000121",
+          "last_event_id": "evt-20261108T232126Z-s2-cambio-version-f000180",
+          "acuerdo": 1.0,
+          "cobertura_referencia": 1.0,
+          "respaldo_produccion": 1.0,
+          "acuerdo_sin_clase": 1.0,
+          "n_frames": 60,
+          "m": 1624,
+          "m_sin_clase": 1624,
+          "n_prod": 1624,
+          "n_ref": 1624,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 4,
+          "first_event_id": "evt-20261108T232126Z-s2-cambio-version-f000181",
+          "last_event_id": "evt-20261108T232126Z-s2-cambio-version-f000240",
+          "acuerdo": 0.6234,
+          "cobertura_referencia": 0.5536,
+          "respaldo_produccion": 0.7132,
+          "acuerdo_sin_clase": 0.6424,
+          "n_frames": 60,
+          "m": 883,
+          "m_sin_clase": 910,
+          "n_prod": 1238,
+          "n_ref": 1595,
+          "bajo_referencia": false
+        }
+      ]
     }
   },
   "contexto_fuente": {
@@ -174,7 +256,8 @@
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 479.37,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 1.0
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.6819
     },
     {
       "idx": 2,
@@ -193,7 +276,8 @@
       "G7_alertas_activas": 1,
       "M2_e2e_p95_ms": 788.78,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 0.25
+      "G6_prop_version_esperada": 0.25,
+      "M4_acuerdo_modelos": 0.909
     },
     {
       "idx": 3,
@@ -212,7 +296,8 @@
       "G7_alertas_activas": 1,
       "M2_e2e_p95_ms": 808.96,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 0.0
+      "G6_prop_version_esperada": 0.0,
+      "M4_acuerdo_modelos": 1.0
     },
     {
       "idx": 4,
@@ -231,7 +316,8 @@
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 465.34,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 1.0
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.6234
     }
   ]
 }

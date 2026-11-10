@@ -13,6 +13,7 @@ forma de verificarlo.
 | **M1** | Métrica | Desplazamiento de la distribución de puntuaciones frente a la referencia (Wasserstein-1) | 8 | completo |
 | **M2** | Métrica | Latencia de punta a punta (frame → evento), p50/p95 por ejecución y por ventana | 5 | completo |
 | **M3** | Métrica | Tiempo de recuperación de la fuente y disponibilidad por ventana | 5 | completo (con S1-R, S1-V y S1-W) |
+| **M4** | Métrica | Acuerdo entre modelos (producción frente a un modelo de referencia, mismos frames), con caso controlado | 8 | completo |
 | **F1** | Funcionalidad | Gráficas por ventana en el portal (proporción baja, media y W1, con umbrales, huecos y alertas) | 10 | completo |
 | **F2** | Funcionalidad | Revisión humana de alertas y capturas: estados coordinados con las reglas, persistencia trazable, cola de revisión | 15 | completo |
 | **F3** | Funcionalidad | Exportación de eventos y detecciones (CSV/JSONL) con filtros, procedencia y verificación | 10 | completo |
@@ -158,6 +159,21 @@ Código: [`src/monitor/drift.py`](../src/monitor/drift.py).
 | **Resultado** | S1-R: 1 incidente, **90.0 s**, 45 muestras perdidas; disponibilidad 0.8125, con 0.50 en la ventana 2 y 0.75 en la 3. S1-V: **92.0 s**, 31 muestras, disponibilidad 0.8708 (0.48 en la ventana 2). S1-W: **84.6 s**, 28 muestras, disponibilidad 0.8792 (0.55 en la ventana 2, 0.97 en la 3). C1, C2 y referencias: sin incidentes, disponibilidad 1.0. |
 | **Recálculo** | `monitor.metrics` → `metricas_adicionales.M3_recuperacion_fuente` y `ventanas[].M3_disponibilidad_fuente`; [`tests/test_metrics.py`](../tests/test_metrics.py). |
 
+## M4 · Acuerdo entre modelos (métrica, nivel 8)
+
+Detalle, verificación y límites: [`docs/metrica-m4.md`](metrica-m4.md).
+
+| | |
+|---|---|
+| **Definición** | Acuerdo (Dice) entre las detecciones de producción (yolo11n, `events.jsonl`) y las de un modelo de referencia (yolo11s) sobre **los mismos frames** (`acuerdo.jsonl`, con el SHA-256 de cada frame): `2·pares / (n_prod + n_ref)`, con s ≥ 0.25, misma clase e IoU ≥ 0.5. Por ejecución y por ventana, con desglose de cobertura, respaldo y confusión de clase. |
+| **Correlación de fuentes** | Dos fuentes de predicción por frame, unidas por `event_id` y por el archivo de entrada. La referencia corre aparte, fuera del bucle de producción; el cálculo se rehace desde los dos registros sin modelo. |
+| **Población, exclusiones y cero observaciones** | Eventos con inferencia válida y frame medido. `excluido` y `sin_frame` quedan registrados por evento. Un frame 0/0 no aporta. Ventana suficiente con ≥ 45 frames y ≥ 300 detecciones; si no, `null`. |
+| **Referencia** | Las dos ejecuciones de referencia: 30 ventanas entre 0.618 y 0.834; piso = mínimo (0.6178). |
+| **Caso controlado** | Grabación de C1 con desenfoque σ = 3 desde la muestra 121 (`20261109T054751Z-m4-desenfoque`). `monitor.agreement comparar`: ventanas 1–2 con frames idénticos a C1 → **diferencia 0 exacta**; ventanas 3–4 desenfocadas → **−0.056 y −0.125**, ambas bajo el piso. Además: control de producción contra sí misma = **1.0** en las 7 ventanas de C1, y en S2 (producción es yolo11s en las muestras 76–180) la ventana 3 = **1.0**. |
+| **Resultado** | C1 0.654 y C2 (noche) 0.652: la baja confianza de C2 no mueve el acuerdo, así que no repite G4. Referencias 0.818 (mañana) y 0.650 (tarde). |
+| **Límites verificados** | El piso absoluto deja 2 de 14 ventanas normales por debajo (la escena pesa más que el desenfoque): se reporta como métrica, sin regla de alerta. La referencia no es la verdad. Requiere los frames (reproducciones). |
+| **Recálculo** | `monitor.metrics` → `metricas_adicionales.M4_acuerdo_modelos` y `ventanas[].M4_acuerdo_modelos`; serie en `/graficas` (capturas 47–49); [`tests/test_agreement.py`](../tests/test_agreement.py) (10 pruebas). |
+
 ## F1 · Gráficas por ventana en el portal (funcionalidad, nivel 10)
 
 Flujo con consulta parametrizada, persistencia pertinente y verificación de resultados y de estados
@@ -265,6 +281,10 @@ portal) y `/api/panel`.
   verificación reutiliza `monitor.dashboard --verificar` (F5) sin cobrarlo de nuevo. Lo que se reclama es el
   escenario: la regla de telemetría, los búferes con reintento, el 503 del portal y la comprobación de que
   no se pierde nada. S4-a y S4-b se reclaman como un solo extra.
+- M4 no repite G4 ni M1: esas miden solo las puntuaciones del modelo desplegado; M4 compara sus detecciones
+  con las de otro modelo sobre los mismos frames (en C2 la confianza baja y el acuerdo no cambia). Usa la
+  ejecución de S2 como uno de sus casos de verificación, sin volver a reclamar S2. Su serie en `/graficas`
+  amplía F1, que no se cobra otra vez.
 - F2 no repite F1 ni las vistas base: agrega acciones humanas con estado, persistencia y reglas de
   transición. Las capturas y alertas que revisa son las mismas de C1, C2, S1 y S2, que no se vuelven
   a contar.

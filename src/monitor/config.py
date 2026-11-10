@@ -57,6 +57,12 @@ def load_config(path: str | Path) -> dict:
                or tl.get("index_timeout_s", 1) <= 0):
         raise ValueError("telemetry_health: consecutive_failures, recover_after_ok y max_buffer deben ser >= 1 "
                          "e index_timeout_s > 0")
+    ag = cfg.get("agreement")
+    if ag and (not 0 < ag["iou_min"] <= 1 or ag["min_frames"] < 1 or ag["min_objects"] < 1
+               or (ag["reference"] != cfg["model"]["name"]
+                   and ag["reference"] not in (cfg.get("model_alternatives") or {}))):
+        raise ValueError("agreement: iou_min en (0, 1], min_frames y min_objects >= 1, y reference debe ser el "
+                         "modelo de producción o uno de model_alternatives")
     for name, alt in (cfg.get("model_alternatives") or {}).items():
         if not {"weights", "sha256"} <= set(alt):
             raise ValueError(f"model_alternatives.{name}: faltan weights o sha256")

@@ -1,6 +1,7 @@
 """F5 · panel de operación: indicadores, reglas de atención, estado coordinado, filtros, verificación y vistas."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -236,8 +237,9 @@ def test_portal_panel_without_runs(tmp_path, monkeypatch):
 def test_cli_verificar(world):
     cmd = [sys.executable, "-m", "monitor.dashboard", "--db", str(world["db"]), "--runs-dir", str(world["runs"]),
            "--verificar"]
-    ok = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", cwd=REPO)
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}     # en Windows, un pipe usa cp1252 por defecto
+    ok = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", cwd=REPO, env=env)
     assert ok.returncode == 0 and "coincide" in ok.stdout, ok.stderr
     (world["runs"] / world["ids"][2] / "events.jsonl").write_text("", encoding="utf-8")
-    bad = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", cwd=REPO)
+    bad = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", cwd=REPO, env=env)
     assert bad.returncode == 1 and "NO coincide" in bad.stdout

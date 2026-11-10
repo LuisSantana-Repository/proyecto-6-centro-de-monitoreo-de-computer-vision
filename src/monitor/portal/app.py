@@ -23,9 +23,10 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.templating import Jinja2Templates
 
 from monitor import dashboard as panelmod
-from monitor import drift
+from monitor import agreement, drift
 from monitor import export as exporter
 from monitor import live as livemod
+from monitor.config import load_config
 from monitor.draw import draw_detections
 from monitor.portal.charts import window_chart
 from monitor.review import (CAPTURE_LABELS, VERDICTS, ReviewError, ReviewLog, alert_state, capture_state,
@@ -521,6 +522,14 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
             ok = len(ch) == size and n_valid >= wcfg["min_valid_frames"] and len(sc) >= wcfg["min_eligible"]
             w1[i // size + 1] = drift.w1(sc, ref["quantiles"]) if (ok and ref) else None
 
+        # M4: acuerdo con el modelo de referencia, desde el registro primario acuerdo.jsonl (si se midió)
+        m4, acfg_p = None, root / agreement.CONFIG
+        if (root / runs_dir / run_id / agreement.OUT).exists() and acfg_p.exists():
+            aref = agreement.load_reference(root / agreement.REF_FILE)
+            rep = agreement.report(root / runs_dir / run_id, load_config(acfg_p), aref)
+            m4 = {"points": [{"idx": x["idx"], "value": x["acuerdo"]} for x in rep["ventanas"]],
+                  "floor": aref["piso"] if aref else None, "reference": rep["modelo_referencia"], "value": rep["valor"]}
+
         def pts(key):
             return [{"idx": w["idx"], "value": (w[key] if w["state"] in ("normal", "fuera_de_rango") else None),
                      "state": w["state"], "alerts": marks.get(w["idx"], [])} for w in wins]
@@ -532,6 +541,10 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
             "w1": {"points": [{"idx": w["idx"], "value": w1.get(w["idx"]), "state": w["state"],
                                "alerts": marks.get(w["idx"], [])} for w in wins],
                    "threshold": ref["threshold"] if ref else None, "has_reference": ref is not None},
+            "m4": None if m4 is None else {
+                **m4, "points": [{"idx": w["idx"], "state": w["state"], "alerts": marks.get(w["idx"], []),
+                                  "value": next((x["value"] for x in m4["points"] if x["idx"] == w["idx"]), None)}
+                                 for w in wins]},
         }
 
     @app.get("/graficas", response_class=HTMLResponse)
@@ -564,6 +577,12 @@ def create_app(db_path: str | Path, root: str | Path = ".", runs_dir: str = "dat
                          fmt="{:.4f}", note="" if w["has_reference"] else "falta config/referencia-distribucion.json",
                          has_rule=False),
         ]
+        if d["m4"]:
+            a = d["m4"]
+            charts.append(window_chart(f"Acuerdo con el modelo de referencia (métrica M4, {a['reference']})",
+                                       only(a["points"], None), a["floor"], "<",
+                                       note="Dice de detecciones emparejadas; la línea es el piso de la referencia",
+                                       has_rule=False))
         return templates.TemplateResponse(request, "charts.html", {"runs": runs, "run_id": run_id, "charts": charts,
                                                                    "d": d})
 

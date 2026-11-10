@@ -135,6 +135,13 @@
       "incidentes_abiertos": 0,
       "disponibilidad": 1.0,
       "incidentes": []
+    },
+    "M4_acuerdo_modelos": {
+      "valor": null,
+      "estado": "sin_datos",
+      "n": 0,
+      "ventanas": [],
+      "nota": "sin acuerdo.jsonl: uv run python -m monitor.agreement medir <run>"
     }
   },
   "contexto_fuente": {
@@ -173,7 +180,8 @@
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 132.68,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 1.0
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     },
     {
       "idx": 2,
@@ -192,7 +200,8 @@
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 166.1,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 1.0
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     },
     {
       "idx": 3,
@@ -211,7 +220,8 @@
       "G7_alertas_activas": 1,
       "M2_e2e_p95_ms": 120.99,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 1.0
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     },
     {
       "idx": 4,
@@ -230,7 +240,8 @@
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 112.94,
       "M3_disponibilidad_fuente": 1.0,
-      "G6_prop_version_esperada": 1.0
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     }
   ]
 }

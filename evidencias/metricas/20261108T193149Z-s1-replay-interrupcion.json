@@ -142,6 +142,13 @@
           "first_ok_event_id": "evt-20261108T193149Z-s1-replay-interrupcion-f000136"
         }
       ]
+    },
+    "M4_acuerdo_modelos": {
+      "valor": null,
+      "estado": "sin_datos",
+      "n": 0,
+      "ventanas": [],
+      "nota": "sin acuerdo.jsonl: uv run python -m monitor.agreement medir <run>"
     }
   },
   "contexto_fuente": {
@@ -179,7 +186,9 @@
       "G4_n_elegibles": 1198,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 342.74,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     },
     {
       "idx": 2,
@@ -197,7 +206,9 @@
       "G4_n_elegibles": 591,
       "G7_alertas_activas": 1,
       "M2_e2e_p95_ms": 321.1,
-      "M3_disponibilidad_fuente": 0.5
+      "M3_disponibilidad_fuente": 0.5,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     },
     {
       "idx": 3,
@@ -215,7 +226,9 @@
       "G4_n_elegibles": 973,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 321.05,
-      "M3_disponibilidad_fuente": 0.75
+      "M3_disponibilidad_fuente": 0.75,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     },
     {
       "idx": 4,
@@ -233,7 +246,9 @@
       "G4_n_elegibles": 1238,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 354.97,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": null
     }
   ]
 }

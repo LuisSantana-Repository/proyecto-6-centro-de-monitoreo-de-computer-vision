@@ -23,6 +23,7 @@ datos/runs/*
 !datos/runs/20261109T030642Z-s3b-persistente/
 !datos/runs/20261109T033540Z-s4a-indice-bloqueado/
 !datos/runs/20261109T034343Z-s4b-registro-sin-espacio/
+!datos/runs/20261109T054751Z-m4-desenfoque/
 datos/grabaciones/
 datos/logs/
 datos/exportaciones.jsonl

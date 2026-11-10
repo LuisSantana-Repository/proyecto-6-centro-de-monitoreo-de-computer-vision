@@ -1,0 +1,16 @@
+# Métrica adicional M4 · Acuerdo entre modelos. No es una configuración de ejecución: monitor.run sigue usando
+# monitor.yaml (cfg-0b5e664b118c) sin cambios. Define el modelo de referencia que se corre aparte, sobre los
+# mismos frames de una ejecución (monitor.agreement medir), y los parámetros del emparejamiento.
+base: monitor.yaml
+
+model_alternatives:
+  yolo11s:
+    weights: modelo/yolo11s.pt
+    url: https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s.pt
+    sha256: 85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5
+
+agreement:
+  reference: yolo11s     # modelo de referencia: misma familia, más grande; mismos imgsz, clases y pisos que producción
+  iou_min: 0.5           # dos cajas son la misma detección con IoU >= 0.5 y la misma clase
+  min_frames: 45         # ventana suficiente: >= 45 frames medidos (como min_valid_frames)...
+  min_objects: 300       # ... y >= 300 detecciones entre los dos modelos (como min_eligible)

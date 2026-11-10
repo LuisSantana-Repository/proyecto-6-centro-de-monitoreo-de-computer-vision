@@ -224,6 +224,253 @@
       "incidentes_abiertos": 0,
       "disponibilidad": 1.0,
       "incidentes": []
+    },
+    "M4_acuerdo_modelos": {
+      "valor": 0.818,
+      "unidad": "proporción (Dice de detecciones emparejadas)",
+      "n": 15,
+      "estado": "ok",
+      "modelo_referencia": "yolo11s@sha256:85a76fe86dd8",
+      "cobertura_referencia": 0.8438,
+      "respaldo_produccion": 0.7936,
+      "acuerdo_sin_clase": 0.8253,
+      "frames": {
+        "medido": 900,
+        "excluido": 0,
+        "sin_frame": 0
+      },
+      "eventos_sin_registro": 0,
+      "piso_referencia": 0.6178,
+      "ventanas_bajo_referencia": 0,
+      "min_ventana": 0.7858,
+      "definicion": "2·pares / (n_prod + n_ref); s >= 0.25, misma clase, IoU >= 0.5",
+      "ventanas": [
+        {
+          "idx": 1,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000001",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000060",
+          "acuerdo": 0.8258,
+          "cobertura_referencia": 0.8012,
+          "respaldo_produccion": 0.852,
+          "acuerdo_sin_clase": 0.8308,
+          "n_frames": 60,
+          "m": 1157,
+          "m_sin_clase": 1164,
+          "n_prod": 1358,
+          "n_ref": 1444,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 2,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000061",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000120",
+          "acuerdo": 0.8309,
+          "cobertura_referencia": 0.8556,
+          "respaldo_produccion": 0.8076,
+          "acuerdo_sin_clase": 0.8406,
+          "n_frames": 60,
+          "m": 1280,
+          "m_sin_clase": 1295,
+          "n_prod": 1585,
+          "n_ref": 1496,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 3,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000121",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000180",
+          "acuerdo": 0.8255,
+          "cobertura_referencia": 0.8493,
+          "respaldo_produccion": 0.803,
+          "acuerdo_sin_clase": 0.836,
+          "n_frames": 60,
+          "m": 1651,
+          "m_sin_clase": 1672,
+          "n_prod": 2056,
+          "n_ref": 1944,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 4,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000181",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000240",
+          "acuerdo": 0.8336,
+          "cobertura_referencia": 0.8383,
+          "respaldo_produccion": 0.8289,
+          "acuerdo_sin_clase": 0.8387,
+          "n_frames": 60,
+          "m": 1618,
+          "m_sin_clase": 1628,
+          "n_prod": 1952,
+          "n_ref": 1930,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 5,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000241",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000300",
+          "acuerdo": 0.8219,
+          "cobertura_referencia": 0.8347,
+          "respaldo_produccion": 0.8095,
+          "acuerdo_sin_clase": 0.8298,
+          "n_frames": 60,
+          "m": 1555,
+          "m_sin_clase": 1570,
+          "n_prod": 1921,
+          "n_ref": 1863,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 6,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000301",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000360",
+          "acuerdo": 0.8207,
+          "cobertura_referencia": 0.8687,
+          "respaldo_produccion": 0.7777,
+          "acuerdo_sin_clase": 0.8233,
+          "n_frames": 60,
+          "m": 1588,
+          "m_sin_clase": 1593,
+          "n_prod": 2042,
+          "n_ref": 1828,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 7,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000361",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000420",
+          "acuerdo": 0.8242,
+          "cobertura_referencia": 0.8507,
+          "respaldo_produccion": 0.7993,
+          "acuerdo_sin_clase": 0.8328,
+          "n_frames": 60,
+          "m": 1533,
+          "m_sin_clase": 1549,
+          "n_prod": 1918,
+          "n_ref": 1802,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 8,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000421",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000480",
+          "acuerdo": 0.8128,
+          "cobertura_referencia": 0.8798,
+          "respaldo_produccion": 0.7553,
+          "acuerdo_sin_clase": 0.8163,
+          "n_frames": 60,
+          "m": 1633,
+          "m_sin_clase": 1640,
+          "n_prod": 2162,
+          "n_ref": 1856,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 9,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000481",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000540",
+          "acuerdo": 0.822,
+          "cobertura_referencia": 0.8539,
+          "respaldo_produccion": 0.7923,
+          "acuerdo_sin_clase": 0.8261,
+          "n_frames": 60,
+          "m": 1602,
+          "m_sin_clase": 1610,
+          "n_prod": 2022,
+          "n_ref": 1876,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 10,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000541",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000600",
+          "acuerdo": 0.8054,
+          "cobertura_referencia": 0.8332,
+          "respaldo_produccion": 0.7793,
+          "acuerdo_sin_clase": 0.8151,
+          "n_frames": 60,
+          "m": 1649,
+          "m_sin_clase": 1669,
+          "n_prod": 2116,
+          "n_ref": 1979,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 11,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000601",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000660",
+          "acuerdo": 0.8061,
+          "cobertura_referencia": 0.8537,
+          "respaldo_produccion": 0.7635,
+          "acuerdo_sin_clase": 0.8149,
+          "n_frames": 60,
+          "m": 1646,
+          "m_sin_clase": 1664,
+          "n_prod": 2156,
+          "n_ref": 1928,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 12,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000661",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000720",
+          "acuerdo": 0.8205,
+          "cobertura_referencia": 0.8433,
+          "respaldo_produccion": 0.7989,
+          "acuerdo_sin_clase": 0.8261,
+          "n_frames": 60,
+          "m": 1609,
+          "m_sin_clase": 1620,
+          "n_prod": 2014,
+          "n_ref": 1908,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 13,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000721",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000780",
+          "acuerdo": 0.7858,
+          "cobertura_referencia": 0.8098,
+          "respaldo_produccion": 0.7632,
+          "acuerdo_sin_clase": 0.8043,
+          "n_frames": 60,
+          "m": 1405,
+          "m_sin_clase": 1438,
+          "n_prod": 1841,
+          "n_ref": 1735,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 14,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000781",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000840",
+          "acuerdo": 0.8202,
+          "cobertura_referencia": 0.8535,
+          "respaldo_produccion": 0.7895,
+          "acuerdo_sin_clase": 0.8249,
+          "n_frames": 60,
+          "m": 1410,
+          "m_sin_clase": 1418,
+          "n_prod": 1786,
+          "n_ref": 1652,
+          "bajo_referencia": false
+        },
+        {
+          "idx": 15,
+          "first_event_id": "evt-20261108T155809Z-referencia-manana-f000841",
+          "last_event_id": "evt-20261108T155809Z-referencia-manana-f000900",
+          "acuerdo": 0.8184,
+          "cobertura_referencia": 0.8253,
+          "respaldo_produccion": 0.8116,
+          "acuerdo_sin_clase": 0.8239,
+          "n_frames": 60,
+          "m": 1620,
+          "m_sin_clase": 1631,
+          "n_prod": 1996,
+          "n_ref": 1963,
+          "bajo_referencia": false
+        }
+      ]
     }
   },
   "contexto_fuente": {
@@ -260,7 +507,9 @@
       "G4_n_elegibles": 1358,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 304.75,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8258
     },
     {
       "idx": 2,
@@ -278,7 +527,9 @@
       "G4_n_elegibles": 1585,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 310.92,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8309
     },
     {
       "idx": 3,
@@ -296,7 +547,9 @@
       "G4_n_elegibles": 2056,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 349.55,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8255
     },
     {
       "idx": 4,
@@ -314,7 +567,9 @@
       "G4_n_elegibles": 1952,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 314.3,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8336
     },
     {
       "idx": 5,
@@ -332,7 +587,9 @@
       "G4_n_elegibles": 1921,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 320.02,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8219
     },
     {
       "idx": 6,
@@ -350,7 +607,9 @@
       "G4_n_elegibles": 2042,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 290.93,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8207
     },
     {
       "idx": 7,
@@ -368,7 +627,9 @@
       "G4_n_elegibles": 1918,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 314.13,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8242
     },
     {
       "idx": 8,
@@ -386,7 +647,9 @@
       "G4_n_elegibles": 2162,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 293.26,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8128
     },
     {
       "idx": 9,
@@ -404,7 +667,9 @@
       "G4_n_elegibles": 2022,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 298.25,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.822
     },
     {
       "idx": 10,
@@ -422,7 +687,9 @@
       "G4_n_elegibles": 2116,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 342.62,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8054
     },
     {
       "idx": 11,
@@ -440,7 +707,9 @@
       "G4_n_elegibles": 2156,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 319.79,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8061
     },
     {
       "idx": 12,
@@ -458,7 +727,9 @@
       "G4_n_elegibles": 2014,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 287.77,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8205
     },
     {
       "idx": 13,
@@ -476,7 +747,9 @@
       "G4_n_elegibles": 1841,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 341.23,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.7858
     },
     {
       "idx": 14,
@@ -494,7 +767,9 @@
       "G4_n_elegibles": 1786,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 374.31,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8202
     },
     {
       "idx": 15,
@@ -512,7 +787,9 @@
       "G4_n_elegibles": 1996,
       "G7_alertas_activas": 0,
       "M2_e2e_p95_ms": 324.55,
-      "M3_disponibilidad_fuente": 1.0
+      "M3_disponibilidad_fuente": 1.0,
+      "G6_prop_version_esperada": 1.0,
+      "M4_acuerdo_modelos": 0.8184
     }
   ]
 }

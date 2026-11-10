@@ -2,7 +2,7 @@
 
 **Estudiante:** Luis Santana · **Entrega:** individual · **Configuración:** `cfg-0b5e664b118c`
 ([`config/monitor.yaml`](../config/monitor.yaml)) · **Modelo:** `yolo11n@sha256:0ebbc80d4a76`
-([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, S4, M1, M2, M3, F1, F2, F3, F4 y F5 ([`docs/extras.md`](../docs/extras.md);
+([`modelo/README.md`](../modelo/README.md)) · **Extras:** S1, S2, S3, S4, M1, M2, M3, M4, F1, F2, F3, F4 y F5 ([`docs/extras.md`](../docs/extras.md);
 sección [Extras](#extras) abajo).
 
 ## Revisiones Git
@@ -57,6 +57,7 @@ de los eventos resuelven tal cual. Cada carpeta contiene:
 | `20261109T030642Z-s3b-persistente` | extra **S3-b** | grabación de C1; inferencia fallida en las muestras 151–180, recargas sin efecto | 1 frame / 2 s |
 | `20261109T033540Z-s4a-indice-bloqueado` | extra **S4-a** | grabación de C1; candado exclusivo real sobre el índice en las muestras 76–105 | 1 frame / 2 s |
 | `20261109T034343Z-s4b-registro-sin-espacio` | extra **S4-b** | grabación de C1; registro primario sin espacio (simulado) en las muestras 166–185 | 1 frame / 2 s |
+| `20261109T054751Z-m4-desenfoque` | extra **M4** (caso controlado) | grabación de C1, muestras 121–240 con desenfoque σ = 3 ([`entradas/m4-desenfoque/`](entradas/m4-desenfoque/)) | sin pausa |
 | `20261109T005919Z-f4-vivo` | extra **F4** (10:00 JST, lluvia) | cámara en vivo con la vista en vivo publicada (90 frames) | en vivo |
 
 Las grabaciones completas (≈ 850 MB) no se versionan. Una muestra de 60 frames, la primera
@@ -100,7 +101,7 @@ Desde un clon limpio:
 ```bash
 uv sync
 uv run python -m monitor.download_model         # pesos verificados por SHA-256
-uv run pytest -q                                # 122 pruebas
+uv run pytest -q                                # 132 pruebas
 
 # 1) Recalcular desde los registros primarios versionados (sin modelo)
 uv run python -m monitor.evaluate datos/runs/20261108T163302Z-c2-baja-confianza   # ventanas y alertas: coinciden=True
@@ -118,7 +119,7 @@ uv run python -m monitor.run --replay evidencias/entradas/c2-noche --no-pace --l
 ```
 
 Comprobado en un clon limpio de `97469f3` (antes de los extras), descargado desde GitHub el 2026-11-08:
-- 29 pruebas pasan (hoy son 122).
+- 29 pruebas pasan (hoy son 132).
 - `evaluate` coincide en las cuatro ejecuciones.
 - Las métricas de C2 son idénticas a [`metricas/`](metricas/).
 - La muestra de C2 reproduce la ventana 1 y su alerta.
@@ -176,6 +177,9 @@ Las capturas están en [`portal/`](portal/); se tomaron con Edge headless sobre 
 | 44 | `/eventos` (base bloqueada) | S4: el portal responde 503 con el motivo y el enlace a `/vivo` (antes, 500) |
 | 45 | `/alertas/…s4a-…-indice-f000076` | S4-a: 30 muestras sin índice, 31 pendientes aplicados, 0 perdidos |
 | 46 | `/alertas/…s4b-…-registro-f000166` | S4-b: 20 muestras sin registro, 41 líneas retenidas y escritas en orden, 0 perdidos |
+| 47 | `/graficas?run_id=…m4-desenfoque` | M4: las dos ventanas desenfocadas caen bajo el piso de la referencia |
+| 48 | `/graficas?run_id=…s2-cambio-version` | M4 sobre S2: acuerdo 1.0 en la ventana en que producción es yolo11s |
+| 49 | `/graficas?run_id=…c2-baja-confianza` | M4 sobre C2: la baja confianza sube y el acuerdo no |
 
 Respuestas JSON de la API en el mismo momento: [`portal/api/`](portal/api/).
 
@@ -196,6 +200,7 @@ Detalle, definiciones y control de doble conteo: [`docs/extras.md`](../docs/extr
 | **M1** desplazamiento de la distribución (W1) | 8 | [`config/referencia-distribucion.json`](../config/referencia-distribucion.json); `metricas_adicionales` en [`metricas/`](metricas/); [`tests/test_drift.py`](../tests/test_drift.py) |
 | **M2** latencia de punta a punta | 5 | `metricas_adicionales.M2_latencia_e2e` y `ventanas[].M2_e2e_p95_ms` en [`metricas/`](metricas/) |
 | **M3** recuperación de la fuente y disponibilidad | 5 | `metricas_adicionales.M3_recuperacion_fuente` de las tres ejecuciones de S1 |
+| **M4** acuerdo entre modelos | 8 | [`docs/metrica-m4.md`](../docs/metrica-m4.md); `acuerdo.jsonl` en referencias, C1, C2, S2 y `…m4-desenfoque`; [`config/referencia-acuerdo.json`](../config/referencia-acuerdo.json); `M4_acuerdo_modelos` en [`metricas/`](metricas/); capturas [`47`](portal/47-graficas-m4-desenfoque.png)–[`49`](portal/49-graficas-m4-c2-noche.png); [`tests/test_agreement.py`](../tests/test_agreement.py) |
 | **F1** gráficas por ventana en el portal | 10 | capturas [`12`](portal/12-graficas-c2.png), [`13`](portal/13-graficas-s1.png), [`14`](portal/14-graficas-c1.png), [`17`](portal/17-graficas-s1-wifi.png), [`19`](portal/19-graficas-s1-vivo.png); [`portal/api/graficas-s1-vivo.json`](portal/api/graficas-s1-vivo.json); [`tests/test_portal.py`](../tests/test_portal.py) |
 
 Para recalcular S1 desde los registros versionados:

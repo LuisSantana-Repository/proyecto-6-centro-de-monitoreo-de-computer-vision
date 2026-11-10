@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-11-09T06:51:46.663Z",
+  "metric": "acuerdo_dice",
+  "agreement_config_ref": "cfg-c3223347fd49",
+  "modelo_referencia": "yolo11s",
+  "runs": [
+    "20261108T155809Z-referencia-manana",
+    "20261108T160249Z-referencia-tarde"
+  ],
+  "n_windows": 30,
+  "min": 0.6178,
+  "max": 0.8336,
+  "media": 0.7333,
+  "piso": 0.6178,
+  "regla_piso": "mínimo del acuerdo por ventana en las ejecuciones de referencia",
+  "por_ejecucion": {
+    "20261108T155809Z-referencia-manana": {
+      "acuerdo": 0.818,
+      "ventanas": [
+        0.8258,
+        0.8309,
+        0.8255,
+        0.8336,
+        0.8219,
+        0.8207,
+        0.8242,
+        0.8128,
+        0.822,
+        0.8054,
+        0.8061,
+        0.8205,
+        0.7858,
+        0.8202,
+        0.8184
+      ]
+    },
+    "20261108T160249Z-referencia-tarde": {
+      "acuerdo": 0.6496,
+      "ventanas": [
+        0.7007,
+        0.6269,
+        0.62,
+        0.6473,
+        0.631,
+        0.646,
+        0.6284,
+        0.6514,
+        0.6286,
+        0.6698,
+        0.663,
+        0.648,
+        0.6178,
+        0.6674,
+        0.6776
+      ]
+    }
+  }
+}
